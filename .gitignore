@@ -12,3 +12,6 @@ data/
 # 기타
 .DS_Store
 Thumbs.db
+
+*.ckpt
+results/
