@@ -1,5 +1,5 @@
 """
-FastAPI 백엔드 서버 (Streamlit 연동용)
+FastAPI 백엔드 서버 
 
 실행 방법:
     python server.py
@@ -253,7 +253,5 @@ async def shutdown():
 
 
 if __name__ == "__main__":
-    print(f"\n[SERVER] http://localhost:{SERVER_PORT}")
-    print(f"   Camera: {camera_index}")
-    print(f"   Stop: Ctrl+C\n")
+    print(f"\n로컬 서버가 열려요. http://localhost:{SERVER_PORT}")
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)
