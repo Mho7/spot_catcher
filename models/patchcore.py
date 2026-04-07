@@ -56,8 +56,6 @@ class PatchCore:
         # ========================================
         # 1. 사전학습된 백본 네트워크 로드
         # ========================================
-        print(f"[INFO] 백본 네트워크 로드 중: {backbone}")
-        print("   (최초 실행 시 모델 다운로드에 시간이 걸릴 수 있습니다)")
         
         self.backbone = getattr(models, backbone)(weights='IMAGENET1K_V1')
         self.backbone.to(self.device)
@@ -78,8 +76,6 @@ class PatchCore:
             layer = dict(self.backbone.named_children())[layer_name]
             layer.register_forward_hook(get_hook(layer_name))
         
-        print(f"추출 레이어: {self.layers}")
-        print("백본 준비 완\n")
     
     #  aggregation 방식을 채택함
     def _extract_features(self, images):
@@ -124,16 +120,12 @@ class PatchCore:
         Args:
             dataloader: 정상 이미지 DataLoader
         """
-        print("=" * 50)
-        print("PatchCore 학습 시작 (메모리 뱅크 구축)")
-        print("=" * 50)
         
         all_patches = []
         
         # ========================================
         # Step 1: 모든 정상 이미지에서 패치 특징 추출
         # ========================================
-        print("\n[INFO] 정상 이미지에서 패치 특징 추출 중...")
         for images, filenames in tqdm(dataloader, desc="특징 추출"):
             patches, self.feature_map_size = self._extract_features(images)
             all_patches.append(patches.cpu().numpy())
@@ -142,15 +134,12 @@ class PatchCore:
         all_patches = np.concatenate(all_patches, axis=0)  # [N, num_patches, C]
         all_patches = all_patches.reshape(-1, all_patches.shape[-1])  # [N*num_patches, C]
         
-        print(f"   총 패치 수: {all_patches.shape[0]:,}")
-        print(f"   패치 특징 차원: {all_patches.shape[1]}")
         
         # ========================================
         # Step 2: Coreset Subsampling (핵심 패치만 선별)
         # ========================================
         # 모든 패치를 저장하면 메모리/속도 문제 → 대표적인 것만 남김
         n_select = max(1, int(all_patches.shape[0] * self.coreset_ratio))
-        print(f"\n[INFO] Coreset Subsampling: {all_patches.shape[0]:,} → {n_select:,} 패치")
         
         if n_select < all_patches.shape[0]:
             # Greedy Coreset: 가장 멀리 떨어진 패치를 순차적으로 선택
@@ -158,8 +147,6 @@ class PatchCore:
         else:
             self.memory_bank = all_patches
         
-        print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")
-        print("\n[OK] PatchCore 학습 완료!")
     
     def _greedy_coreset(self, features, n_select):
         """
@@ -174,7 +161,6 @@ class PatchCore:
         Returns:
             선택된 패치 특징 [n_select, C]
         """
-        print("   Coreset 선택 중 (시간이 걸릴 수 있습니다)...")
         
         # 차원 축소로 속도 향상 (옵션)
         if features.shape[1] > 128:
@@ -271,7 +257,6 @@ class PatchCore:
         
         with open(path, 'wb') as f:
             pickle.dump(save_data, f)
-        print(f"[OK] PatchCore 모델 저장: {path}")
     
     def load(self, path=None):
         """메모리 뱅크 로드"""
@@ -283,5 +268,3 @@ class PatchCore:
         
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
-        print(f"[OK] PatchCore 모델 로드: {path}")
-        print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")

@@ -248,7 +248,7 @@
 
   /* ── 상단 바 ── */
   function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb }) {
-    const subtitles = { home: "SPOT CATCHER", result: "SCAN RESULT", storage: "DEFECT STORAGE" };
+    const subtitles = { home: "", result: "", storage: "" };
     return (
       <div className="topbar">
         <div className="brand">
@@ -499,11 +499,14 @@
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: isDefect ? "#c0292a" : "#1e7a36" }}>
-                      {(score * 100).toFixed(0)}점
-                    </span>
-                    <span style={{ fontSize: 14, color: "#ccc" }}>›</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      onClick={e => remove(d.id, e)}
+                      disabled={deleting === d.id}
+                      style={{ background: "rgba(220,50,50,0.1)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "#c0292a", fontWeight: 700 }}>
+                      {deleting === d.id ? "..." : "삭제"}
+                    </button>
+                    {d.overlay_url && <span style={{ fontSize: 14, color: "#ccc" }}>›</span>}
                   </div>
                 </div>
               );

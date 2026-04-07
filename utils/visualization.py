@@ -101,7 +101,6 @@ def save_result_image(original_image, anomaly_map, save_path, threshold=0.5):
     plt.savefig(save_path, dpi=100, bbox_inches='tight')
     plt.close()
 
-    print(f"  결과 이미지 저장: {save_path}")
 
 
 def save_single_overlay(original_image, anomaly_map, save_path, threshold=0.5):

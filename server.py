@@ -58,15 +58,12 @@ async def index():
 # ========================================
 # 모델 로드 (PatchCore만)
 # ========================================
-print("[INFO] 서버 시작 중... 모델 로드")
 
 patchcore_model = None
 try:
     patchcore_model = PatchCore()
     patchcore_model.load()
-    print("[OK] PatchCore 모델 로드 완료")
 except Exception as e:
-    print(f"[WARN] PatchCore: {e}")
 
 pc_transform = get_default_transform()
 
@@ -261,5 +258,4 @@ async def shutdown():
 
 
 if __name__ == "__main__":
-    print(f"\n로컬 서버가 열려요. http://localhost:{SERVER_PORT}")
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)

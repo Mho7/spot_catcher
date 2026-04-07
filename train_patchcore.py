@@ -24,19 +24,13 @@ from utils.visualization import save_result_image
 
 
 def main():
-    print("=" * 60)
-    print("🔬 PatchCore 이상 탐지 모델 학습")
-    print("=" * 60)
     
     # ========================================
     # 1. 데이터 로드
     # ========================================
-    print("\n📂 데이터 로드 중...")
     train_loader = get_dataloader(TRAIN_DIR, batch_size=4, shuffle=False)
     
     if len(train_loader.dataset) == 0:
-        print("❌ 학습 데이터가 없습니다!")
-        print(f"   '{TRAIN_DIR}' 폴더에 정상 이미지를 넣어주세요.")
         return
     
     # ========================================
@@ -47,14 +41,10 @@ def main():
     start_time = time.time()
     model.fit(train_loader)
     train_time = time.time() - start_time
-    print(f"\n⏱️  학습 시간: {train_time:.1f}초")
     
     # ========================================
     # 3. 테스트 이미지로 탐지 테스트
     # ========================================
-    print("\n" + "=" * 60)
-    print("🧪 테스트 이미지 탐지 시작")
-    print("=" * 60)
     
     transform = get_default_transform()
     
@@ -67,9 +57,7 @@ def main():
                     test_images.append((os.path.join(test_dir, f), label, f))
     
     if not test_images:
-        print("⚠️  테스트 이미지가 없습니다. 학습만 완료되었습니다.")
     else:
-        print(f"\n   테스트 이미지 수: {len(test_images)}\n")
         
         results_dir = os.path.join(STATIC_DIR, "patchcore_results")
         os.makedirs(results_dir, exist_ok=True)
@@ -88,7 +76,6 @@ def main():
             
             # 결과 출력
             status = "🔴 이상" if score > 0.5 else "🟢 정상"
-            print(f"  [{label}] {filename}: 점수={score:.4f} {status} ({infer_time:.2f}초)")
             
             # 결과 이미지 저장
             save_path = os.path.join(results_dir, f"result_{filename}")
@@ -99,11 +86,6 @@ def main():
     # ========================================
     model.save()
     
-    print("\n" + "=" * 60)
-    print("✅ PatchCore 학습 및 테스트 완료!")
-    print(f"   모델: saved_models/patchcore.pkl")
-    print(f"   결과: static/patchcore_results/")
-    print("=" * 60)
 
 
 if __name__ == "__main__":

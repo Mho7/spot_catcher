@@ -17,7 +17,6 @@ count = 0
 while True:
     ret, frame = cap.read()
     if not ret:
-        print("프레임을 읽지 못했습니다.")
         break
 
     cv2.imshow("Camera", frame)
@@ -27,7 +26,6 @@ while True:
     if key == ord("s"):
         filename = os.path.join(save_dir, f"frame_{count:04d}.png")
         cv2.imwrite(filename, frame)
-        print(f"저장됨: {filename}")
         count += 1
 
     elif key == ord("q"):
