@@ -21,7 +21,7 @@
       display: flex;
       flex-direction: column;
       padding: 28px 34px;
-      max-width: 1000px;
+      max-width: 1400px;
       margin: 0 auto;
     }
 
@@ -95,7 +95,7 @@
 
     /* ── 카메라 박스 ── */
     .preview-box {
-      width: 100%; aspect-ratio: 16/7;
+      width: 100%; aspect-ratio: 16/9;
       border-radius: 20px;
       background: #dde4ec;
       border: 2px dashed rgba(70,70,70,0.15);
@@ -103,7 +103,7 @@
       position: relative; overflow: hidden;
     }
     .preview-box img {
-      width: 100%; height: 100%; object-fit: cover; border-radius: 20px; display: block;
+      width: 100%; height: 100%; object-fit: contain; border-radius: 20px; display: block;
     }
     .live-badge {
       position: absolute; top: 14px; left: 14px;
@@ -217,6 +217,13 @@
 
     .error-msg { color: #c0292a; font-size: 13px; margin-top: 8px; font-weight: 500; text-align: center; }
 
+    .kernel-select {
+      background: rgba(255,255,255,0.7); border: 1.5px solid rgba(0,0,0,0.12);
+      border-radius: 8px; padding: 4px 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; color: #1f1f1f;
+    }
+    .kernel-select:disabled { opacity: 0.4; cursor: default; }
+
     @media (max-width: 640px) {
       .app { padding: 16px; }
       .img-compare, .result-metrics { grid-template-columns: 1fr; }
@@ -250,8 +257,41 @@
     return { health, failed };
   }
 
+  /* ── Aggregation 훅 ── */
+  function useAggregation() {
+    const [useAgg, setUseAgg]         = React.useState(true);
+    const [kernelSize, setKernelSize] = React.useState(3);
+    const [syncing, setSyncing]       = React.useState(false);
+
+    // 서버에서 현재 설정 읽기
+    React.useEffect(() => {
+      api.get("/model/settings")
+        .then(d => {
+          if (d.use_aggregation !== null) setUseAgg(d.use_aggregation);
+          if (d.aggregation_kernel_size !== null) setKernelSize(d.aggregation_kernel_size);
+        })
+        .catch(() => {});
+    }, []);
+
+    const toggle = async (enabled, kernel) => {
+      setSyncing(true);
+      try {
+        await fetch(`${BASE}/model/aggregation`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled, kernel_size: kernel }),
+        });
+        setUseAgg(enabled);
+        setKernelSize(kernel);
+      } catch {}
+      setSyncing(false);
+    };
+
+    return { useAgg, kernelSize, syncing, toggle };
+  }
+
   /* ── 상단 바 ── */
-  function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb }) {
+  function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb, useAgg, kernelSize, aggSyncing, onAggToggle }) {
     const subtitles = { home: "SPOT CATCHER", result: "SCAN RESULT", storage: "DEFECT STORAGE" };
     return (
       <div className="topbar">
@@ -260,13 +300,30 @@
           <div>{subtitles[screen]}</div>
         </div>
         <div className="topbar-right">
+          {/* Aggregation 토글 */}
+          <div className="save-toggle-box" style={{ opacity: aggSyncing ? 0.6 : 1 }}>
+            <label className="switch">
+              <input type="checkbox" checked={useAgg} disabled={aggSyncing}
+                onChange={e => onAggToggle(e.target.checked, kernelSize)} />
+              <span className="slider" />
+            </label>
+            <span>Aggregation {useAgg ? "ON" : "OFF"}</span>
+            <select className="kernel-select" value={kernelSize} disabled={!useAgg || aggSyncing}
+              onChange={e => onAggToggle(useAgg, Number(e.target.value))}>
+              <option value={1}>k=1</option>
+              <option value={3}>k=3</option>
+              <option value={5}>k=5</option>
+              <option value={7}>k=7</option>
+            </select>
+          </div>
+
           {/* 결과 저장 토글 */}
           <div className="save-toggle-box">
             <label className="switch">
               <input type="checkbox" checked={saveDb} onChange={e => setSaveDb(e.target.checked)} />
               <span className="slider" />
             </label>
-            <span>test {saveDb ? "on" : "off"}</span>
+            <span>DB저장 {saveDb ? "ON" : "OFF"}</span>
           </div>
 
           {screen !== "home" && (
@@ -327,7 +384,7 @@
               <div className="small-text">python server.py 를 먼저 실행해 주세요</div>
             </div>
           ) : (
-            <img src={`${BASE}/camera/stream_detect`} alt="카메라 화면" />
+            <img src={`${BASE}/camera/stream`} alt="카메라 화면" />
           )}
         </div>
 
@@ -371,29 +428,23 @@
 
         <div className="img-compare">
           <div className="img-box">
-            <img src={`${BASE}${result.original_url}`} alt="원본" />
+            <img src={result.original_b64} alt="원본" />
             <div className="img-label">원본 사진</div>
           </div>
           <div className="img-box">
-            <img src={`${BASE}${result.overlay_url}`} alt="불량 위치" />
+            <img src={result.overlay_b64} alt="불량 위치" />
             <div className="img-label">불량 위치</div>
           </div>
         </div>
 
-        <div className="result-metrics">
-          <div className="metric-card">
-            <div className="metric-label">불량 점수</div>
-            <div className="metric-value" style={{ color: result.is_anomaly ? "#c0292a" : "#1e7a36" }}>
-              {(result.anomaly_score * 100).toFixed(0)}점
-            </div>
-          </div>
-          <div className="metric-card">
+        <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 18 }}>
+          <div className="metric-card" style={{ minWidth: 160 }}>
             <div className="metric-label">판정</div>
             <div className="metric-value" style={{ fontSize: 20, color: result.is_anomaly ? "#c0292a" : "#1e7a36" }}>
               {result.verdict}
             </div>
           </div>
-          <div className="metric-card">
+          <div className="metric-card" style={{ minWidth: 160 }}>
             <div className="metric-label">분석 시간</div>
             <div className="metric-value">{result.inference_time}s</div>
           </div>
@@ -541,6 +592,7 @@
     const [lastResult, setLastResult] = React.useState(null);
     const [saveDb, setSaveDb]         = React.useState(true);
     const { health, failed } = useHealth();
+    const { useAgg, kernelSize, syncing: aggSyncing, toggle: onAggToggle } = useAggregation();
 
     return (
       <div className="app">
@@ -548,6 +600,8 @@
           screen={screen} setScreen={setScreen}
           health={health} failed={failed}
           saveDb={saveDb} setSaveDb={setSaveDb}
+          useAgg={useAgg} kernelSize={kernelSize}
+          aggSyncing={aggSyncing} onAggToggle={onAggToggle}
         />
         {screen === "home"    && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} saveDb={saveDb} />}
         {screen === "result"  && <ResultScreen result={lastResult} setScreen={setScreen} />}

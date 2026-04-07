@@ -15,8 +15,9 @@ FastAPI 백엔드 서버
     GET  /defects/stats           - 결함 통계
 """
 import os
-import uuid
 import time
+import base64
+import io
 import numpy as np
 from PIL import Image
 import cv2
@@ -25,13 +26,14 @@ import argparse
 from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 import uvicorn
 
 from config import IMAGE_SIZE, STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT
 from models.patchcore import PatchCore
 from utils.dataset import get_default_transform
-from utils.visualization import create_heatmap_overlay, save_single_overlay
+from utils.visualization import create_heatmap_overlay
 from realtime_camera import find_cameras
 from database import save_defect, get_defects, get_defect_stats
 
@@ -84,8 +86,8 @@ def get_camera():
         if not camera_cap.isOpened():
             camera_cap = cv2.VideoCapture(camera_index)
         if camera_cap.isOpened():
-            camera_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            camera_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            camera_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            camera_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     return camera_cap
 
 
@@ -144,10 +146,10 @@ async def camera_stream_detect():
                     tensor = pc_transform(pil_img)
                     score, amap = patchcore_model.predict(tensor)
 
-                    resized = np.array(pil_img.resize(IMAGE_SIZE))
-                    overlay, _ = create_heatmap_overlay(resized, amap, threshold=0.5, alpha=0.5)
+                    # 화면 표시는 원본 카메라 해상도(640×480) 유지
+                    overlay, _ = create_heatmap_overlay(frame_rgb, amap, threshold=0.5, alpha=0.5)
 
-                    combined = np.hstack([resized, overlay])
+                    combined = np.hstack([frame_rgb, overlay])
                     combined_bgr = cv2.cvtColor(combined, cv2.COLOR_RGB2BGR)
 
                     verdict = "DEFECT" if score > 0.5 else "NORMAL"
@@ -183,27 +185,33 @@ async def camera_capture(save_to_db: str = Form("false")):
             return JSONResponse(status_code=400, content={"error": "PatchCore 모델이 준비되지 않았습니다."})
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        original_np = frame_rgb
         pil_image = Image.fromarray(frame_rgb)
-        original_np = np.array(pil_image.resize(IMAGE_SIZE))
 
         tensor = pc_transform(pil_image)
         start = time.time()
         score, anomaly_map = patchcore_model.predict(tensor)
         infer_time = time.time() - start
 
-        rid = str(uuid.uuid4())[:8]
-        Image.fromarray(original_np).save(os.path.join(STATIC_DIR, f"cam_{rid}.png"))
-        save_single_overlay(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
+        # 빨간 마스킹 오버레이 생성
+        h, w = original_np.shape[:2]
+        amap = cv2.resize(anomaly_map, (w, h), interpolation=cv2.INTER_LINEAR)
+        binary_mask = amap > 0.5
+        red_layer = np.zeros_like(original_np)
+        red_layer[binary_mask] = [255, 0, 0]
+        overlay_np = cv2.addWeighted(original_np, 1.0, red_layer, 0.5, 0)
 
-        original_url = f"/static/cam_{rid}.png"
-        overlay_url  = f"/static/cam_ov_{rid}.png"
+        def to_b64(arr):
+            buf = io.BytesIO()
+            Image.fromarray(arr).save(buf, format="JPEG", quality=85)
+            return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
         saved = False
         if save_to_db.lower() == "true":
             try:
                 saved = save_defect(
                     source="camera", model_type="patchcore", anomaly_score=float(score),
-                    original_url=original_url, overlay_url=overlay_url,
+                    original_url="", overlay_url="",
                 )
             except Exception:
                 pass
@@ -215,12 +223,42 @@ async def camera_capture(save_to_db: str = Form("false")):
             "is_anomaly": score > 0.5,
             "verdict": "결함 탐지" if score > 0.5 else "정상",
             "inference_time": round(infer_time, 3),
-            "original_url": original_url,
-            "overlay_url": overlay_url,
+            "original_b64": to_b64(original_np),
+            "overlay_b64": to_b64(overlay_np),
             "saved_to_db": saved,
         })
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ========================================
+# 모델 설정 API (aggregation 토글)
+# ========================================
+class AggregationSetting(BaseModel):
+    enabled: bool
+    kernel_size: int = 3
+
+
+@app.get("/model/settings")
+async def model_settings():
+    if patchcore_model is None:
+        return {"use_aggregation": None, "aggregation_kernel_size": None}
+    return {
+        "use_aggregation": patchcore_model.use_aggregation,
+        "aggregation_kernel_size": patchcore_model.aggregation_kernel_size,
+    }
+
+
+@app.post("/model/aggregation")
+async def set_aggregation(setting: AggregationSetting):
+    if patchcore_model is None:
+        return JSONResponse(status_code=400, content={"error": "모델이 준비되지 않았습니다."})
+    patchcore_model.use_aggregation = setting.enabled
+    patchcore_model.aggregation_kernel_size = setting.kernel_size
+    return {
+        "use_aggregation": patchcore_model.use_aggregation,
+        "aggregation_kernel_size": patchcore_model.aggregation_kernel_size,
+    }
 
 
 # ========================================
