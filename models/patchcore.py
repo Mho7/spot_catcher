@@ -22,7 +22,8 @@ import pickle
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    PATCHCORE_BACKBONE, PATCHCORE_LAYERS, CORESET_RATIO, SAVE_DIR
+    PATCHCORE_BACKBONE, PATCHCORE_LAYERS, CORESET_RATIO, SAVE_DIR,
+    USE_AGGREGATION, AGGREGATION_KERNEL_SIZE
 )
 
 
@@ -39,16 +40,22 @@ class PatchCore:
     """
     
     def __init__(self, backbone=PATCHCORE_BACKBONE, layers=PATCHCORE_LAYERS,
-                 coreset_ratio=CORESET_RATIO):
+                 coreset_ratio=CORESET_RATIO,
+                 use_aggregation=USE_AGGREGATION,
+                 aggregation_kernel_size=AGGREGATION_KERNEL_SIZE):
         """
         Args:
             backbone: 사전학습 백본 네트워크 이름
             layers: 특징을 추출할 레이어 이름 리스트
             coreset_ratio: 메모리 뱅크에서 유지할 특징 비율
+            use_aggregation: True=avg_pool2d 적용, False=원시 패치 사용
+            aggregation_kernel_size: avg_pool2d 커널 크기 (홀수 권장: 3, 5, 7)
         """
         self.device = torch.device("cpu")  # CPU 모드
         self.layers = layers
         self.coreset_ratio = coreset_ratio
+        self.use_aggregation = use_aggregation
+        self.aggregation_kernel_size = aggregation_kernel_size
         
         # 메모리 뱅크 (학습 후 채워짐)
         self.memory_bank = None
@@ -79,6 +86,8 @@ class PatchCore:
             layer.register_forward_hook(get_hook(layer_name))
         
         print(f"추출 레이어: {self.layers}")
+        agg_status = f"ON (kernel={self.aggregation_kernel_size})" if self.use_aggregation else "OFF"
+        print(f"Aggregation(avg_pool2d): {agg_status}")
         print("백본 준비 완\n")
     
     #  aggregation 방식을 채택함
@@ -108,8 +117,16 @@ class PatchCore:
         
         
         combined = torch.cat(all_features, dim=1)
-        # 추가된 부분 주변 패치 평균으로 
-        combined = F.avg_pool2d(combined, kernel_size=3, stride=1, padding=1)
+        # 주변 패치 평균으로 특징을 부드럽게 만듦 (노이즈 감소 효과)
+        # config.py의 USE_AGGREGATION / AGGREGATION_KERNEL_SIZE 로 제어
+        if self.use_aggregation:
+            pad = self.aggregation_kernel_size // 2
+            combined = F.avg_pool2d(
+                combined,
+                kernel_size=self.aggregation_kernel_size,
+                stride=1,
+                padding=pad,
+            )
 
         B, C, H, W = combined.shape
         patches = combined.permute(0, 2, 3, 1).reshape(B, H * W, C)
@@ -158,6 +175,7 @@ class PatchCore:
         else:
             self.memory_bank = all_patches
         
+        self._memory_bank_sq = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T
         print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")
         print("\n[OK] PatchCore 학습 완료!")
     
@@ -230,17 +248,17 @@ class PatchCore:
         patches = patches.cpu().numpy().reshape(-1, patches.shape[-1])  # [H*W, C]
         
         # ========================================
-        # 메모리 뱅크와의 거리 계산
+        # 메모리 뱅크와의 거리 계산 (벡터화)
         # ========================================
-        # 각 패치에 대해 메모리 뱅크에서 가장 가까운 정상 패치와의 거리
-        distances = []
-        for patch in patches:
-            # L2 거리 계산
-            dist = np.linalg.norm(self.memory_bank - patch, axis=1)
-            min_dist = dist.min()  # 가장 가까운 정상 패치와의 거리
-            distances.append(min_dist)
-        
-        distances = np.array(distances)
+        # patches: [P, C], memory_bank: [M, C]
+        # ||a - b||^2 = ||a||^2 + ||b||^2 - 2*a@b^T 로 한번에 계산
+        patches_sq = np.sum(patches ** 2, axis=1, keepdims=True)       # [P, 1]
+        memory_sq  = getattr(self, '_memory_bank_sq',
+                             np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T)  # [1, M]
+        cross      = patches @ self.memory_bank.T                       # [P, M]
+        dist_sq    = patches_sq + memory_sq - 2 * cross
+        dist_sq    = np.maximum(dist_sq, 0)  # 수치 오차 보정
+        distances  = np.sqrt(dist_sq.min(axis=1))                       # [P]
         
         # 이상 맵: [H*W] → [H, W]로 reshape
         anomaly_map = distances.reshape(H, W)
@@ -267,6 +285,8 @@ class PatchCore:
             'feature_map_size': self.feature_map_size,
             'layers': self.layers,
             'coreset_ratio': self.coreset_ratio,
+            'use_aggregation': self.use_aggregation,
+            'aggregation_kernel_size': self.aggregation_kernel_size,
         }
         
         with open(path, 'wb') as f:
@@ -283,5 +303,11 @@ class PatchCore:
         
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
+        self.use_aggregation = save_data.get('use_aggregation', True)
+        self.aggregation_kernel_size = save_data.get('aggregation_kernel_size', 3)
+        # 추론 시 반복 계산 방지용으로 미리 계산
+        self._memory_bank_sq = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T
         print(f"[OK] PatchCore 모델 로드: {path}")
         print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")
+        agg_status = f"ON (kernel={self.aggregation_kernel_size})" if self.use_aggregation else "OFF"
+        print(f"   Aggregation: {agg_status}")

@@ -19,17 +19,25 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-# 정 안되면 224-> 320으로 올려서 미세 결함 잡기
-IMAGE_SIZE = (224, 224)  # CPU에서 느리면 128로 줄이기
+# 정 안되면 224-> 320으로 올려서 미세 결함 잡기.. 단 실행 속도가 느려질 수 있음 최후수단
+IMAGE_SIZE = (224, 224) 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-# ============================================
-# PatchCore 설정
-# ============================================
+
 PATCHCORE_BACKBONE = "wide_resnet50_2"  # 백본 네트워크
-PATCHCORE_LAYERS = ["layer2", "layer3"]  # 특징 추출할 레이어
-CORESET_RATIO = 0.1  # 메모리 뱅크에서 유지할 패치 비율 (0.1 = 10%)
+PATCHCORE_LAYERS = ["layer2", "layer3"]
+CORESET_RATIO = 0.1  # 메모리 뱅크에서 유지할 패치 비율 -> 이것도 해상도와 같은 느낌 0.1 -> 0.15까지 늘려서 미세결함 잡기
+
+# ============================================
+# Aggregation (Pooling) 설정
+# ============================================
+# USE_AGGREGATION: True = avg_pool2d로 주변 패치 평균 (노이즈 감소, 경계 뭉개짐 위험)
+#                 False = 원시 패치 특징 그대로 사용 (노이즈 민감, 미세 결함 검출 유리)
+USE_AGGREGATION = True
+AGGREGATION_KERNEL_SIZE = 3   # 홀수만 권장: 1(비활성화와 동일), 3, 5, 7
+
+
 # → 값이 작을수록 빠르지만 정확도가 약간 떨어질 수 있음
 # → CPU 환경에서는 0.01~0.1 권장
 
