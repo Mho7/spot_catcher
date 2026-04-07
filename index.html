@@ -29,10 +29,7 @@
     .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
     .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: 1px; font-size: 15px; }
     .brand-mark {
-      width: 32px; height: 32px; border-radius: 10px;
-      background: #111; color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: 900;
+      height: 32px; width: auto;
     }
     .topbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
@@ -95,7 +92,7 @@
 
     /* ── 카메라 박스 ── */
     .preview-box {
-      width: 100%; aspect-ratio: 16/7;
+      width: 100%; aspect-ratio: 4/3;
       border-radius: 20px;
       background: #dde4ec;
       border: 2px dashed rgba(70,70,70,0.15);
@@ -134,7 +131,7 @@
     /* ── 결과 화면 ── */
     .section-title { font-size: 15px; font-weight: 800; letter-spacing: 0.8px; margin-bottom: 16px; }
     .img-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
-    .img-box { border-radius: 16px; overflow: hidden; position: relative; background: #e0e6ec; aspect-ratio: 4/3; }
+    .img-box { border-radius: 16px; overflow: hidden; position: relative; background: #e0e6ec; aspect-ratio: 1/1; }
     .img-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .img-label {
       position: absolute; bottom: 10px; left: 12px;
@@ -230,8 +227,9 @@
   const BASE = "http://localhost:8000";
 
   const api = {
-    get:  (p) => fetch(`${BASE}${p}`).then(r => r.json()),
-    post: (p, b) => fetch(`${BASE}${p}`, { method: "POST", body: b }).then(r => r.json()),
+    get:    (p) => fetch(`${BASE}${p}`).then(r => r.json()),
+    post:   (p, b) => fetch(`${BASE}${p}`, { method: "POST", body: b }).then(r => r.json()),
+    delete: (p) => fetch(`${BASE}${p}`, { method: "DELETE" }).then(r => r.json()),
   };
 
   function useHealth() {
@@ -256,7 +254,7 @@
     return (
       <div className="topbar">
         <div className="brand">
-          <div className="brand-mark">S</div>
+          <img className="brand-mark" src="/static/로고.png" alt="logo" />
           <div>{subtitles[screen]}</div>
         </div>
         <div className="topbar-right">
@@ -266,7 +264,7 @@
               <input type="checkbox" checked={saveDb} onChange={e => setSaveDb(e.target.checked)} />
               <span className="slider" />
             </label>
-            <span>test {saveDb ? "on" : "off"}</span>
+            <span>DB 저장 {saveDb ? "on" : "off"}</span>
           </div>
 
           {screen !== "home" && (
@@ -327,7 +325,7 @@
               <div className="small-text">python server.py 를 먼저 실행해 주세요</div>
             </div>
           ) : (
-            <img src={`${BASE}/camera/stream_detect`} alt="카메라 화면" />
+            <img src={`${BASE}/camera/stream`} alt="카메라 화면" />
           )}
         </div>
 
@@ -382,12 +380,6 @@
 
         <div className="result-metrics">
           <div className="metric-card">
-            <div className="metric-label">불량 점수</div>
-            <div className="metric-value" style={{ color: result.is_anomaly ? "#c0292a" : "#1e7a36" }}>
-              {(result.anomaly_score * 100).toFixed(0)}점
-            </div>
-          </div>
-          <div className="metric-card">
             <div className="metric-label">판정</div>
             <div className="metric-value" style={{ fontSize: 20, color: result.is_anomaly ? "#c0292a" : "#1e7a36" }}>
               {result.verdict}
@@ -428,9 +420,22 @@
   function StorageScreen() {
     const [defects, setDefects]   = React.useState(null);
     const [loading, setLoading]   = React.useState(false);
-    const [minScore, setMinScore] = React.useState(0.0);
+    const [minScore, setMinScore] = React.useState(0.51);
     const [error, setError]       = React.useState(null);
     const [selected, setSelected] = React.useState(null);
+    const [deleting, setDeleting] = React.useState(null);
+
+    const remove = async (id, e) => {
+      e.stopPropagation();
+      setDeleting(id);
+      try {
+        await api.delete(`/defects/${id}`);
+        setDefects(prev => ({ ...prev, defects: prev.defects.filter(d => d.id !== id), count: prev.count - 1 }));
+      } catch {
+        setError("삭제에 실패했어요.");
+      }
+      setDeleting(null);
+    };
 
     const load = async () => {
       setLoading(true); setError(null);
@@ -539,7 +544,7 @@
   function App() {
     const [screen, setScreen]         = React.useState("home");
     const [lastResult, setLastResult] = React.useState(null);
-    const [saveDb, setSaveDb]         = React.useState(true);
+    const [saveDb, setSaveDb]         = React.useState(false);
     const { health, failed } = useHealth();
 
     return (
