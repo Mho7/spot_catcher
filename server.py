@@ -33,7 +33,7 @@ from models.patchcore import PatchCore
 from utils.dataset import get_default_transform
 from utils.visualization import create_heatmap_overlay, save_single_overlay
 from realtime_camera import find_cameras
-from database import save_defect, get_defects, get_defect_stats
+from database import save_defect, get_defects, get_defect_stats, delete_defect
 
 # ========================================
 # 인자 파싱
@@ -230,6 +230,14 @@ async def camera_capture(save_to_db: str = Form("false")):
 async def defects_list(limit: int = 100, min_score: float = 0.3):
     data = get_defects(limit=limit, min_score=min_score)
     return {"count": len(data), "defects": data}
+
+
+@app.delete("/defects/{defect_id}")
+async def defect_delete(defect_id: int):
+    deleted = delete_defect(defect_id)
+    if deleted:
+        return {"success": True}
+    return JSONResponse(status_code=404, content={"error": "항목을 찾을 수 없어요."})
 
 
 @app.get("/defects/stats")

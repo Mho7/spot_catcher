@@ -523,7 +523,7 @@
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 15 }}>불량 위치</div>
                   <div style={{ fontSize: 12, color: "#999", marginTop: 3 }}>
-                    {selected.created_at ? selected.created_at.replace("T", " ").slice(0, 16) : ""}&nbsp;·&nbsp;결함 점수 {(selected.anomaly_score * 100).toFixed(0)}점
+                    {selected.created_at ? selected.created_at.replace("T", " ").slice(0, 16) : ""}
                   </div>
                 </div>
                 <button onClick={() => setSelected(null)}
