@@ -31,6 +31,8 @@ while True:
         filename = os.path.join(save_dir, f"frame_{count:04d}.png")
         cv2.imwrite(filename, frame)
         count += 1
+        print("저장 완료")
+        print(count)
 
     elif key == ord("q"):
         break
