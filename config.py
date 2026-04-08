@@ -19,12 +19,8 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-# ============================================
-# 이미지 설정
-# ============================================
-IMAGE_SIZE = (224, 224)  # WideResNet 입력 크기 (CPU에서 느리면 128로 줄이기)
-
-# ImageNet 정규화 값 (사전학습 모델이 이 값으로 훈련됨)
+# 정 안되면 224-> 320으로 올려서 미세 결함 잡기
+IMAGE_SIZE = (224, 224)  # CPU에서 느리면 128로 줄이기
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 

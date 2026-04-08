@@ -1,5 +1,5 @@
 """
-FastAPI 백엔드 서버 (Streamlit 연동용)
+FastAPI 백엔드 서버 
 
 실행 방법:
     python server.py
@@ -33,7 +33,7 @@ from models.patchcore import PatchCore
 from utils.dataset import get_default_transform
 from utils.visualization import create_heatmap_overlay, save_single_overlay
 from realtime_camera import find_cameras
-from database import save_defect, get_defects, get_defect_stats
+from database import save_defect, get_defects, get_defect_stats, delete_defect
 
 # ========================================
 # 인자 파싱
@@ -58,15 +58,12 @@ async def index():
 # ========================================
 # 모델 로드 (PatchCore만)
 # ========================================
-print("[INFO] 서버 시작 중... 모델 로드")
 
 patchcore_model = None
 try:
     patchcore_model = PatchCore()
     patchcore_model.load()
-    print("[OK] PatchCore 모델 로드 완료")
 except Exception as e:
-    print(f"[WARN] PatchCore: {e}")
 
 pc_transform = get_default_transform()
 
@@ -232,6 +229,14 @@ async def defects_list(limit: int = 100, min_score: float = 0.3):
     return {"count": len(data), "defects": data}
 
 
+@app.delete("/defects/{defect_id}")
+async def defect_delete(defect_id: int):
+    deleted = delete_defect(defect_id)
+    if deleted:
+        return {"success": True}
+    return JSONResponse(status_code=404, content={"error": "항목을 찾을 수 없어요."})
+
+
 @app.get("/defects/stats")
 async def defects_stats():
     return get_defect_stats()
@@ -253,7 +258,4 @@ async def shutdown():
 
 
 if __name__ == "__main__":
-    print(f"\n[SERVER] http://localhost:{SERVER_PORT}")
-    print(f"   Camera: {camera_index}")
-    print(f"   Stop: Ctrl+C\n")
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)

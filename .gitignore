@@ -9,6 +9,12 @@ saved_models/
 data/
 *.db
 
+# 런타임 생성 파일
+static/patchcore_results/
+
 # 기타
 .DS_Store
 Thumbs.db
+
+*.ckpt
+results/

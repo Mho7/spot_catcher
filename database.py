@@ -86,6 +86,15 @@ def get_defects(limit: int = 100, min_score: float = DEFECT_DB_THRESHOLD):
     return [dict(r) for r in rows]
 
 
+def delete_defect(defect_id: int):
+    """ID로 결함 레코드 삭제. 삭제된 행 수 반환"""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute("DELETE FROM defects WHERE id = ?", (defect_id,))
+    conn.commit()
+    conn.close()
+    return cur.rowcount
+
+
 def get_defect_stats():
     """전체 통계 반환"""
     conn = sqlite3.connect(DB_PATH)
