@@ -51,13 +51,6 @@ def save_result_image(original_image, anomaly_map, save_path, threshold=0.5):
     plt.savefig(save_path, dpi=100, bbox_inches='tight')
     plt.close()
 
-<<<<<<< HEAD
-def save_single_overlay(original_image, anomaly_map, save_path, threshold=0.5):
-    """히트맵 오버레이 이미지만 단독으로 저장 (웹 UI용)"""
-    overlay, _ = create_heatmap_overlay(original_image, anomaly_map, threshold, alpha=0.5)
-=======
-
-
 def save_single_overlay(original_image, anomaly_map, save_path, threshold=0.5):
     """
     빨간 마스킹 오버레이 이미지 저장 (웹 UI용)
@@ -73,7 +66,5 @@ def save_single_overlay(original_image, anomaly_map, save_path, threshold=0.5):
     red_layer[binary_mask] = [255, 0, 0]
 
     overlay = cv2.addWeighted(original_image, 1.0, red_layer, 0.5, 0)
-
->>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
     Image.fromarray(overlay).save(save_path)
     return save_path
