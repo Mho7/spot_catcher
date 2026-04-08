@@ -1,18 +1,22 @@
 import cv2
 import os
 
-save_dir = "collected data/1280"
+save_dir = "collected data/1920"
 os.makedirs(save_dir, exist_ok=True)
 
 cap = cv2.VideoCapture(0)
 
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
-cv2.resizeWindow("Camera", 1280, 720)
+cv2.resizeWindow("Camera", 1920, 1080)
 
-count = 0
+existing = [
+    int(f[6:10]) for f in os.listdir(save_dir)
+    if f.startswith("frame_") and f.endswith(".png") and f[6:10].isdigit()
+]
+count = max(existing) + 1 if existing else 0
 
 while True:
     ret, frame = cap.read()
