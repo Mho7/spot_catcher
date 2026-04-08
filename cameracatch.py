@@ -1,7 +1,7 @@
 import cv2
 import os
 
-save_dir = "collected data"
+save_dir = "collected data/1280"
 os.makedirs(save_dir, exist_ok=True)
 
 cap = cv2.VideoCapture(0)
