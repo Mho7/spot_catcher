@@ -60,7 +60,6 @@ class RealtimeDetector:
         self.model = PatchCore()
         self.model.load()
         self.transform = get_default_transform()
-        print("[OK] PatchCore 모델 로드 완료")
 
     def open_camera(self):
         """
@@ -70,36 +69,27 @@ class RealtimeDetector:
             True: 연결 성공
             False: 연결 실패
         """
-        print(f"\n[INFO] 카메라 연결 시도 (index: {self.camera_index})...")
 
         self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
 
         if not self.cap.isOpened():
-            print("   DirectShow 실패, 기본 백엔드로 재시도...")
             self.cap = cv2.VideoCapture(self.camera_index)
 
         if not self.cap.isOpened():
-            print(f"[ERROR] 카메라 {self.camera_index}번을 열 수 없습니다!")
-            print("   1. 액션캠이 USB로 연결되어 있는지 확인")
-            print("   2. 액션캠을 'USB 웹캠 모드'로 설정")
-            print("   3. camera_index를 0, 1, 2로 바꿔서 시도")
-            print("   4. 다른 프로그램이 카메라를 사용 중인지 확인")
             return False
 
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
         w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = self.cap.get(cv2.CAP_PROP_FPS)
 
-        print(f"[OK] 카메라 연결 성공! 해상도: {w}x{h}, FPS: {fps:.0f}")
         return True
 
     def close_camera(self):
         if self.cap and self.cap.isOpened():
             self.cap.release()
-            print("[INFO] 카메라 연결 해제")
 
     def capture_frame(self):
         """
@@ -166,13 +156,6 @@ class RealtimeDetector:
         if not self.open_camera():
             return
 
-        print("\n" + "=" * 50)
-        print("실시간 결함 탐지 시작!")
-        print("=" * 50)
-        print("   q: 종료")
-        print("   s: 현재 프레임 저장")
-        print("   스페이스바: 일시정지/재개")
-        print("=" * 50)
 
         paused = False
         frame_count = 0
@@ -183,7 +166,6 @@ class RealtimeDetector:
             if not paused:
                 frame_rgb = self.capture_frame()
                 if frame_rgb is None:
-                    print("[WARN] 프레임 캡처 실패")
                     continue
 
                 result = self.detect_frame(frame_rgb)
@@ -207,14 +189,11 @@ class RealtimeDetector:
                 save_name = f"capture_{int(time.time())}.png"
                 save_path = os.path.join(STATIC_DIR, save_name)
                 cv2.imwrite(save_path, cv2.cvtColor(display, cv2.COLOR_RGB2BGR))
-                print(f"[INFO] 프레임 저장: {save_path}")
             elif key == ord(' '):
                 paused = not paused
-                print("[INFO] 일시정지" if paused else "[INFO] 재개")
 
         self.close_camera()
         cv2.destroyAllWindows()
-        print("\n[INFO] 실시간 탐지 종료")
 
     def _create_display(self, frame_rgb, result, fps=0):
         """원본(좌) + 히트맵(우) 나란히 + 정보 표시"""
@@ -242,7 +221,6 @@ class RealtimeDetector:
 
 def find_cameras():
     """사용 가능한 카메라 목록 확인"""
-    print("[INFO] 사용 가능한 카메라 검색 중...\n")
 
     available = []
     for i in range(5):
@@ -250,17 +228,12 @@ def find_cameras():
         if cap.isOpened():
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            print(f"   [OK] 카메라 {i}번: {w}x{h}")
             available.append(i)
             cap.release()
         else:
-            print(f"   [--] 카메라 {i}번: 없음")
 
     if not available:
-        print("\n[WARN] 연결된 카메라가 없습니다!")
-        print("   액션캠을 USB로 연결하고 웹캠 모드로 설정하세요.")
     else:
-        print(f"\n[INFO] 액션캠은 보통 {available[-1]}번입니다.")
 
     return available
 

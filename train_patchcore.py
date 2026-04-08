@@ -24,17 +24,26 @@ from utils.visualization import save_result_image
 
 
 def main():
+<<<<<<< HEAD
     print("PatchCore 이상 탐지 모델 학습")
+=======
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
     
     # ========================================
     # 1. 데이터 로드
     # ========================================
+<<<<<<< HEAD
     print("\n데이터 로드 중...")
     train_loader = get_dataloader(TRAIN_DIR, batch_size=4, shuffle=False)
     
     if len(train_loader.dataset) == 0:
         print("학습 데이터가 없습니다!")
         print(f"   '{TRAIN_DIR}' 폴더에 정상 이미지를 넣어주세요.")
+=======
+    train_loader = get_dataloader(TRAIN_DIR, batch_size=4, shuffle=False)
+    
+    if len(train_loader.dataset) == 0:
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
         return
     
     # ========================================
@@ -45,12 +54,18 @@ def main():
     start_time = time.time()
     model.fit(train_loader)
     train_time = time.time() - start_time
+<<<<<<< HEAD
     print(f"\n학습 시간: {train_time:.1f}초")
+=======
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
     
     # ========================================
     # 3. 테스트 이미지로 탐지 테스트
     # ========================================
+<<<<<<< HEAD
     print("\n테스트 이미지 탐지 시작")
+=======
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
     
     transform = get_default_transform()
     
@@ -63,9 +78,11 @@ def main():
                     test_images.append((os.path.join(test_dir, f), label, f))
     
     if not test_images:
+<<<<<<< HEAD
         print("테스트 이미지가 없습니다. 학습만 완료되었습니다.")
+=======
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
     else:
-        print(f"\n   테스트 이미지 수: {len(test_images)}\n")
         
         results_dir = os.path.join(STATIC_DIR, "patchcore_results")
         os.makedirs(results_dir, exist_ok=True)
@@ -83,8 +100,12 @@ def main():
             infer_time = time.time() - start
             
             # 결과 출력
+<<<<<<< HEAD
             status = "이상" if score > 0.5 else "정상"
             print(f"  [{label}] {filename}: 점수={score:.4f} {status} ({infer_time:.2f}초)")
+=======
+            status = "🔴 이상" if score > 0.5 else "🟢 정상"
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
             
             # 결과 이미지 저장
             save_path = os.path.join(results_dir, f"result_{filename}")
@@ -95,9 +116,12 @@ def main():
     # ========================================
     model.save()
     
+<<<<<<< HEAD
     print("\nPatchCore 학습 및 테스트 완료!")
     print(f"   모델: saved_models/patchcore.pkl")
     print(f"   결과: static/patchcore_results/")
+=======
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
 
 
 if __name__ == "__main__":

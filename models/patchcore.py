@@ -21,10 +21,18 @@ class PatchCore:
         self.layers = layers
         self.coreset_ratio = coreset_ratio
         self.memory_bank = None
+<<<<<<< HEAD
 
         print(f"📦 백본 네트워크 로드 중: {backbone}")
         print("   (최초 실행 시 모델 다운로드에 시간이 걸릴 수 있습니다)")
 
+=======
+        
+        # ========================================
+        # 1. 사전학습된 백본 네트워크 로드
+        # ========================================
+        
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
         self.backbone = getattr(models, backbone)(weights='IMAGENET1K_V1')
         self.backbone.to(self.device)
         self.backbone.eval()
@@ -40,6 +48,7 @@ class PatchCore:
         for layer_name in self.layers:
             layer = dict(self.backbone.named_children())[layer_name]
             layer.register_forward_hook(get_hook(layer_name))
+<<<<<<< HEAD
 
         print(f"   추출 레이어: {self.layers}")
         print("✅ 백본 네트워크 준비 완료\n")
@@ -48,16 +57,34 @@ class PatchCore:
         with torch.no_grad():
             _ = self.backbone(images.to(self.device))
 
+=======
+        
+    
+    #  aggregation 방식을 채택함
+    def _extract_features(self, images):
+
+        with torch.no_grad():
+
+            _ = self.backbone(images.to(self.device))
+        
+        
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
         all_features = []
         target_size = None
 
         for layer_name in self.layers:
+<<<<<<< HEAD
             feat = self.features[layer_name]
+=======
+            feat = self.features[layer_name]  
+            
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
             if target_size is None:
                 target_size = feat.shape[2:]
             if feat.shape[2:] != target_size:
                 feat = F.interpolate(feat, size=target_size, mode='bilinear', align_corners=False)
             all_features.append(feat)
+<<<<<<< HEAD
 
         combined = torch.cat(all_features, dim=1)
         B, C, H, W = combined.shape
@@ -76,15 +103,77 @@ class PatchCore:
         all_patches = all_patches.reshape(-1, all_patches.shape[-1])
         n_select = max(1, int(all_patches.shape[0] * self.coreset_ratio))
 
+=======
+        
+        
+        combined = torch.cat(all_features, dim=1)
+        # 추가된 부분 주변 패치 평균으로 
+        combined = F.avg_pool2d(combined, kernel_size=3, stride=1, padding=1)
+
+        B, C, H, W = combined.shape
+        patches = combined.permute(0, 2, 3, 1).reshape(B, H * W, C)
+        patches = F.normalize(patches, dim=-1) # 정규화작업 추가함
+        return patches, (H, W)
+        
+    
+    def fit(self, dataloader):
+        """
+        정상 이미지들로 메모리 뱅크 구축 (학습 단계)
+        
+        Args:
+            dataloader: 정상 이미지 DataLoader
+        """
+        
+        all_patches = []
+        
+        # ========================================
+        # Step 1: 모든 정상 이미지에서 패치 특징 추출
+        # ========================================
+        for images, filenames in tqdm(dataloader, desc="특징 추출"):
+            patches, self.feature_map_size = self._extract_features(images)
+            all_patches.append(patches.cpu().numpy())
+        
+        # [전체 이미지 × 패치 수, 특징 차원] 형태로 결합
+        all_patches = np.concatenate(all_patches, axis=0)  # [N, num_patches, C]
+        all_patches = all_patches.reshape(-1, all_patches.shape[-1])  # [N*num_patches, C]
+        
+        
+        # ========================================
+        # Step 2: Coreset Subsampling (핵심 패치만 선별)
+        # ========================================
+        # 모든 패치를 저장하면 메모리/속도 문제 → 대표적인 것만 남김
+        n_select = max(1, int(all_patches.shape[0] * self.coreset_ratio))
+        
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
         if n_select < all_patches.shape[0]:
             self.memory_bank = self._greedy_coreset(all_patches, n_select)
         else:
             self.memory_bank = all_patches
+<<<<<<< HEAD
 
         print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")
         print("\n✅ PatchCore 학습 완료!")
 
     def _greedy_coreset(self, features, n_select):
+=======
+        
+    
+    def _greedy_coreset(self, features, n_select):
+        """
+        Greedy Coreset Selection
+        
+        원리: 이미 선택된 점들과 가장 먼 점을 반복적으로 선택
+        → 전체 분포를 잘 대표하는 부분집합을 선택하는 효과
+        
+        Args:
+            features: 전체 패치 특징 [N, C]
+            n_select: 선택할 패치 수
+        Returns:
+            선택된 패치 특징 [n_select, C]
+        """
+        
+        # 차원 축소로 속도 향상 (옵션)
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
         if features.shape[1] > 128:
             projector = SparseRandomProjection(n_components=128, random_state=42)
             reduced = projector.fit_transform(features)
@@ -122,8 +211,16 @@ class PatchCore:
 
         distances = np.array(distances)
         anomaly_map = distances.reshape(H, W)
+<<<<<<< HEAD
         anomaly_map = gaussian_filter(anomaly_map, sigma=4)
 
+=======
+        
+        # 가우시안 스무딩 (부드러운 히트맵을 위해) #4->2 로 수정함 -> 너무 뭉개져서 2로 줄임
+        anomaly_map = gaussian_filter(anomaly_map, sigma=2)
+        
+        # 0~1 범위로 정규화
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
         if anomaly_map.max() > anomaly_map.min():
             anomaly_map = (anomaly_map - anomaly_map.min()) / (anomaly_map.max() - anomaly_map.min())
 
@@ -144,8 +241,12 @@ class PatchCore:
 
         with open(path, 'wb') as f:
             pickle.dump(save_data, f)
+<<<<<<< HEAD
         print(f"💾 PatchCore 모델 저장: {path}")
 
+=======
+    
+>>>>>>> 673f0b54742e8126f992791e667b81dd9982c1f8
     def load(self, path=None):
         if path is None:
             path = os.path.join(SAVE_DIR, "patchcore.pkl")
@@ -155,5 +256,3 @@ class PatchCore:
 
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
-        print(f"📂 PatchCore 모델 로드: {path}")
-        print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")
