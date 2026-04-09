@@ -231,9 +231,12 @@ def find_cameras():
             available.append(i)
             cap.release()
         else:
+            pass
 
     if not available:
+        pass
     else:
+        pass
 
     return available
 
