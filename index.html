@@ -540,7 +540,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const BASE = "http://localhost:8000";
+    const BASE = window.location.origin;
 
     const api = {
       get: (p) => fetch(`${BASE}${p}`).then(r => r.json()),
@@ -608,15 +608,43 @@
     function HomeScreen({ setScreen, setLastResult, health, failed, saveDb }) {
       const [loading, setLoading] = React.useState(false);
       const [error, setError] = React.useState(null);
+      const [camReady, setCamReady] = React.useState(false);
+      const videoRef = React.useRef(null);
+      const streamRef = React.useRef(null);
 
-      const canScan = health?.patchcore_ready && !failed && !loading;
+      React.useEffect(() => {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            streamRef.current = stream;
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              videoRef.current.play();
+            }
+            setCamReady(true);
+          })
+          .catch(() => setCamReady(false));
+        return () => {
+          if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+        };
+      }, []);
+
+      const canScan = health?.patchcore_ready && !failed && !loading && camReady;
 
       const runScan = async () => {
         setLoading(true); setError(null);
         try {
+          const video = videoRef.current;
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext("2d").drawImage(video, 0, 0);
+          const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
+
           const fd = new FormData();
+          fd.append("file", blob, "frame.jpg");
           fd.append("save_to_db", String(saveDb));
-          const data = await api.post("/camera/capture", fd);
+          const data = await fetch(`${BASE}/camera/capture_upload`, { method: "POST", body: fd }).then(r => r.json());
+
           if (data.success) {
             setLastResult(data);
             setScreen("result");
@@ -640,8 +668,15 @@
                 <div style={{ fontWeight: 600 }}>서버에 연결되지 않았어요</div>
                 <div className="small-text">python server.py 를 먼저 실행해 주세요</div>
               </div>
+            ) : !camReady ? (
+              <div className="camera-placeholder">
+                <div className="plus-circle">+</div>
+                <div style={{ fontWeight: 600 }}>카메라 권한을 허용해 주세요</div>
+                <div className="small-text">브라우저 카메라 접근을 허용하면 시작됩니다</div>
+              </div>
             ) : (
-              <img src={`${BASE}/camera/stream`} alt="카메라 화면" />
+              <video ref={videoRef} autoPlay playsInline muted
+                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 20, display: "block" }} />
             )}
           </div>
 

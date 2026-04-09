@@ -22,7 +22,7 @@ from PIL import Image
 import cv2
 import argparse
 
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, File, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -200,6 +200,60 @@ async def camera_capture(save_to_db: str = Form("false")):
             try:
                 saved = save_defect(
                     source="camera", model_type="patchcore", anomaly_score=float(score),
+                    original_url=original_url, overlay_url=overlay_url,
+                )
+            except Exception:
+                pass
+
+        return JSONResponse(content={
+            "success": True,
+            "model": "patchcore",
+            "anomaly_score": round(float(score), 4),
+            "is_anomaly": score > 0.5,
+            "verdict": "결함 탐지" if score > 0.5 else "정상",
+            "inference_time": round(infer_time, 3),
+            "original_url": original_url,
+            "overlay_url": overlay_url,
+            "saved_to_db": saved,
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/camera/capture_upload")
+async def camera_capture_upload(file: UploadFile = File(...), save_to_db: str = Form("false")):
+    """브라우저에서 올린 이미지 프레임 -> 탐지 -> 결과 반환"""
+    try:
+        if patchcore_model is None or patchcore_model.memory_bank is None:
+            return JSONResponse(status_code=400, content={"error": "PatchCore 모델이 준비되지 않았습니다."})
+
+        contents = await file.read()
+        nparr = np.frombuffer(contents, np.uint8)
+        frame_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame_bgr is None:
+            return JSONResponse(status_code=400, content={"error": "이미지 디코딩 실패"})
+
+        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(frame_rgb)
+        original_np = np.array(pil_image.resize(IMAGE_SIZE))
+
+        tensor = pc_transform(pil_image)
+        start = time.time()
+        score, anomaly_map = patchcore_model.predict(tensor)
+        infer_time = time.time() - start
+
+        rid = str(uuid.uuid4())[:8]
+        Image.fromarray(original_np).save(os.path.join(STATIC_DIR, f"cam_{rid}.png"))
+        save_single_overlay(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
+
+        original_url = f"/static/cam_{rid}.png"
+        overlay_url  = f"/static/cam_ov_{rid}.png"
+
+        saved = False
+        if save_to_db.lower() == "true":
+            try:
+                saved = save_defect(
+                    source="browser", model_type="patchcore", anomaly_score=float(score),
                     original_url=original_url, overlay_url=overlay_url,
                 )
             except Exception:
