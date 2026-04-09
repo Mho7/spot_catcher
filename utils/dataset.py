@@ -103,7 +103,6 @@ def get_train_transform():
         transforms.RandomRotation(degrees=5),
         transforms.RandomAffine(degrees=0, translate=(0.03, 0.03)),
         transforms.ColorJitter(brightness=0.3, contrast=0.2),
-        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.5)),
         transforms.Resize(IMAGE_SIZE),
         transforms.ToTensor(),
         transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
