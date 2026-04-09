@@ -61,6 +61,7 @@ def main():
                     test_images.append((os.path.join(test_dir, f), label, f))
     
     if not test_images:
+        pass
     else:
         
         results_dir = os.path.join(STATIC_DIR, "patchcore_results")

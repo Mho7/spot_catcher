@@ -64,6 +64,7 @@ try:
     patchcore_model = PatchCore()
     patchcore_model.load()
 except Exception as e:
+    pass
 
 pc_transform = get_default_transform()
 
