@@ -540,13 +540,16 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    // ★ 데스크톱(서버) IP를 여기서 설정하세요
-    const BASE = "http://192.168.0.100:8000";
+    // ngrok 서빙 시 window.location.origin이 곧 서버 URL
+    const BASE = window.location.origin;
+
+    // ngrok 브라우저 경고 인터셉트 페이지를 fetch에서 건너뛰기 위한 헤더
+    const NGROK_HEADER = { "ngrok-skip-browser-warning": "true" };
 
     const api = {
-      get: (p) => fetch(`${BASE}${p}`).then(r => r.json()),
-      post: (p, b) => fetch(`${BASE}${p}`, { method: "POST", body: b }).then(r => r.json()),
-      delete: (p) => fetch(`${BASE}${p}`, { method: "DELETE" }).then(r => r.json()),
+      get: (p) => fetch(`${BASE}${p}`, { headers: NGROK_HEADER }).then(r => r.json()),
+      post: (p, b) => fetch(`${BASE}${p}`, { method: "POST", body: b, headers: NGROK_HEADER }).then(r => r.json()),
+      delete: (p) => fetch(`${BASE}${p}`, { method: "DELETE", headers: NGROK_HEADER }).then(r => r.json()),
     };
 
     function useHealth() {
@@ -617,17 +620,21 @@
         navigator.mediaDevices.getUserMedia({ video: true })
           .then(stream => {
             streamRef.current = stream;
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-              videoRef.current.play();
-            }
-            setCamReady(true);
+            setCamReady(true);  // 먼저 true로 바꿔서 <video> 요소를 DOM에 추가
           })
           .catch(() => setCamReady(false));
         return () => {
           if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
         };
       }, []);
+
+      // camReady가 true가 된 뒤 <video> 요소가 DOM에 생기면 스트림 연결
+      React.useEffect(() => {
+        if (camReady && videoRef.current && streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          videoRef.current.play().catch(() => {});
+        }
+      }, [camReady]);
 
       const canScan = health?.patchcore_ready && !failed && !loading && camReady;
 
@@ -644,7 +651,7 @@
           const fd = new FormData();
           fd.append("file", blob, "frame.jpg");
           fd.append("save_to_db", String(saveDb));
-          const data = await fetch(`${BASE}/detect`, { method: "POST", body: fd }).then(r => r.json());
+          const data = await fetch(`${BASE}/detect`, { method: "POST", body: fd, headers: NGROK_HEADER }).then(r => r.json());
 
           if (data.success) {
             setLastResult(data);

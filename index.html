@@ -616,10 +616,6 @@
         navigator.mediaDevices.getUserMedia({ video: true })
           .then(stream => {
             streamRef.current = stream;
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-              videoRef.current.play();
-            }
             setCamReady(true);
           })
           .catch(() => setCamReady(false));
@@ -627,6 +623,13 @@
           if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
         };
       }, []);
+
+      React.useEffect(() => {
+        if (camReady && videoRef.current && streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          videoRef.current.play().catch(() => {});
+        }
+      }, [camReady]);
 
       const canScan = health?.patchcore_ready && !failed && !loading && camReady;
 
