@@ -613,13 +613,14 @@
       const streamRef = React.useRef(null);
 
       React.useEffect(() => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setError("카메라 접근 불가: HTTPS 환경이거나 localhost에서 접속해야 합니다.");
+          setCamReady(false);
+          return;
+        }
         navigator.mediaDevices.getUserMedia({ video: true })
           .then(stream => {
             streamRef.current = stream;
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-              videoRef.current.play();
-            }
             setCamReady(true);
           })
           .catch(() => setCamReady(false));
@@ -627,6 +628,13 @@
           if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
         };
       }, []);
+
+      React.useEffect(() => {
+        if (camReady && videoRef.current && streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          videoRef.current.play().catch(() => {});
+        }
+      }, [camReady]);
 
       const canScan = health?.patchcore_ready && !failed && !loading && camReady;
 
