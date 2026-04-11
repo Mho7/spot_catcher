@@ -67,14 +67,12 @@ class PatchCore:
             image_tensor = image_tensor.unsqueeze(0)
 
         patches, (H, W) = self._extract_features(image_tensor)
-        patches = patches.cpu().numpy().reshape(-1, patches.shape[-1])
+        patches = patches.reshape(-1, patches.shape[-1])  # (N, C) GPU 텐서 유지
 
-        distances = []
-        for patch in patches:
-            dist = np.linalg.norm(self.memory_bank - patch, axis=1)
-            distances.append(dist.min())
+        # GPU에서 거리 계산
+        dists = torch.cdist(patches, self.memory_bank)  # (N, M)
+        distances = dists.min(dim=1).values.cpu().numpy()
 
-        distances = np.array(distances)
         anomaly_map = distances.reshape(H, W)
         anomaly_map = gaussian_filter(anomaly_map, sigma=2)
 
@@ -92,5 +90,5 @@ class PatchCore:
         with open(path, 'rb') as f:
             save_data = pickle.load(f)
 
-        self.memory_bank = save_data['memory_bank']
+        self.memory_bank = torch.tensor(save_data['memory_bank'], dtype=torch.float32).to(self.device)
         self.feature_map_size = save_data['feature_map_size']
