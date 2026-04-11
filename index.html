@@ -613,6 +613,11 @@
       const streamRef = React.useRef(null);
 
       React.useEffect(() => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setError("카메라 접근 불가: HTTPS 환경이거나 localhost에서 접속해야 합니다.");
+          setCamReady(false);
+          return;
+        }
         navigator.mediaDevices.getUserMedia({ video: true })
           .then(stream => {
             streamRef.current = stream;

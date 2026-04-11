@@ -613,16 +613,34 @@
       const [loading, setLoading] = React.useState(false);
       const [error, setError] = React.useState(null);
       const [camReady, setCamReady] = React.useState(false);
+      const [camError, setCamError] = React.useState(null);
       const videoRef = React.useRef(null);
       const streamRef = React.useRef(null);
 
       React.useEffect(() => {
+        // HTTPS 또는 localhost가 아니면 getUserMedia 자체가 차단됨
+        if (!window.isSecureContext || !navigator.mediaDevices) {
+          setCamError(
+            "카메라 접근은 HTTPS 또는 localhost에서만 가능합니다.\n" +
+            "ngrok 등 HTTPS 터널을 사용해 주세요."
+          );
+          return;
+        }
         navigator.mediaDevices.getUserMedia({ video: true })
           .then(stream => {
             streamRef.current = stream;
             setCamReady(true);  // 먼저 true로 바꿔서 <video> 요소를 DOM에 추가
           })
-          .catch(() => setCamReady(false));
+          .catch(err => {
+            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+              setCamError("카메라 권한이 거부되었습니다.\n브라우저 주소창에서 카메라 권한을 허용해 주세요.");
+            } else if (err.name === "NotFoundError") {
+              setCamError("카메라를 찾을 수 없습니다.\n카메라가 연결되어 있는지 확인해 주세요.");
+            } else {
+              setCamError("카메라를 시작할 수 없습니다: " + err.message);
+            }
+            setCamReady(false);
+          });
         return () => {
           if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
         };
@@ -674,13 +692,19 @@
               <div className="camera-placeholder">
                 <div className="plus-circle">+</div>
                 <div style={{ fontWeight: 600 }}>서버에 연결되지 않았어요</div>
-                <div className="small-text">python server.py 를 먼저 실행해 주세요</div>
+                <div className="small-text">python server/main.py 를 먼저 실행해 주세요</div>
+              </div>
+            ) : camError ? (
+              <div className="camera-placeholder">
+                <div className="plus-circle" style={{ fontSize: 28, color: "#e04444", borderColor: "#e04444" }}>!</div>
+                <div style={{ fontWeight: 600, color: "#c0292a" }}>카메라를 사용할 수 없어요</div>
+                <div className="small-text" style={{ whiteSpace: "pre-line", marginTop: 8 }}>{camError}</div>
               </div>
             ) : !camReady ? (
               <div className="camera-placeholder">
                 <div className="plus-circle">+</div>
-                <div style={{ fontWeight: 600 }}>카메라 권한을 허용해 주세요</div>
-                <div className="small-text">브라우저 카메라 접근을 허용하면 시작됩니다</div>
+                <div style={{ fontWeight: 600 }}>카메라 시작 중...</div>
+                <div className="small-text">잠시만 기다려 주세요</div>
               </div>
             ) : (
               <video ref={videoRef} autoPlay playsInline muted
