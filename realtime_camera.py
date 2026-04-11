@@ -231,9 +231,12 @@ def find_cameras():
             available.append(i)
             cap.release()
         else:
+            pass
 
     if not available:
+        print("❌ 사용 가능한 카메라를 찾을 수 없습니다.")
     else:
+        print(f"✅ 사용 가능한 카메라: {available}")
 
     return available
 
