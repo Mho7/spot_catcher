@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from torchvision import models
 from sklearn.random_projection import SparseRandomProjection
+from sklearn.neighbors import NearestNeighbors
 from scipy.ndimage import gaussian_filter
 from tqdm import tqdm
 import pickle
@@ -21,7 +22,8 @@ class PatchCore:
         self.layers = layers
         self.coreset_ratio = coreset_ratio
         self.memory_bank = None
-        
+        self.knn = None
+
         # ========================================
         # 1. 사전학습된 백본 네트워크 로드
         # ========================================
@@ -106,6 +108,10 @@ class PatchCore:
             self.memory_bank = self._greedy_coreset(all_patches, n_select)
         else:
             self.memory_bank = all_patches
+
+        # k-NN 탐색 모델 사전 생성 (추론 시 재사용)
+        self.knn = NearestNeighbors(n_neighbors=1, algorithm='brute', n_jobs=-1)
+        self.knn.fit(self.memory_bank)
         
     
     def _greedy_coreset(self, features, n_select):
@@ -132,6 +138,7 @@ class PatchCore:
         n_total = reduced.shape[0]
         selected_indices = []
 
+        np.random.seed(42)
         first_idx = np.random.randint(n_total)
         selected_indices.append(first_idx)
 
@@ -139,7 +146,7 @@ class PatchCore:
 
         for i in tqdm(range(1, n_select), desc="Coreset 선택", leave=False):
             last_selected = reduced[selected_indices[-1]]
-            distances = np.linalg.norm(reduced - last_selected, axis=1)
+            distances = np.sum((reduced - last_selected) ** 2, axis=1)
             min_distances = np.minimum(min_distances, distances)
             next_idx = np.argmax(min_distances)
             selected_indices.append(next_idx)
@@ -153,12 +160,12 @@ class PatchCore:
         patches, (H, W) = self._extract_features(image_tensor)
         patches = patches.cpu().numpy().reshape(-1, patches.shape[-1])
 
-        distances = []
-        for patch in patches:
-            dist = np.linalg.norm(self.memory_bank - patch, axis=1)
-            distances.append(dist.min())
+        if self.knn is None:
+            self.knn = NearestNeighbors(n_neighbors=1, algorithm='brute', n_jobs=-1)
+            self.knn.fit(self.memory_bank)
 
-        distances = np.array(distances)
+        distances, _ = self.knn.kneighbors(patches)
+        distances = distances.flatten()
         anomaly_map = distances.reshape(H, W)
         
         # 가우시안 스무딩 (부드러운 히트맵을 위해) #4->2 로 수정함 -> 너무 뭉개져서 2로 줄임
@@ -195,3 +202,7 @@ class PatchCore:
 
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
+
+        # k-NN 탐색 모델 즉시 생성
+        self.knn = NearestNeighbors(n_neighbors=1, algorithm='brute', n_jobs=-1)
+        self.knn.fit(self.memory_bank)
