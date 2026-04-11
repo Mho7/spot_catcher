@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spot Catcher</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #c9d6e3;
+      color: #1f1f1f;
+      min-height: 100vh;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 34px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* ── 상단 바 ── */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+    }
+
+    .topbar-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* ── 버튼 ── */
+    .nav-btn,
+    .ghost-btn {
+      background: rgba(255, 255, 255, 0.55);
+      border: none;
+      cursor: pointer;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+      transition: 0.2s;
+    }
+
+    .nav-btn:hover,
+    .ghost-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .nav-btn.active {
+      background: #111;
+      color: #fff;
+    }
+
+    /* ── 저장 토글 (상단) ── */
+    .save-toggle-box {
+      background: rgba(255, 255, 255, 0.55);
+      border-radius: 12px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .switch {
+      position: relative;
+      width: 52px;
+      height: 28px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #b8bcc1;
+      transition: 0.3s;
+      cursor: pointer;
+    }
+
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 4px;
+      top: 4px;
+      border-radius: 50%;
+      background: white;
+      transition: 0.3s;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .switch input:checked+.slider {
+      background: #4d7cff;
+    }
+
+    .switch input:checked+.slider::before {
+      transform: translateX(24px);
+    }
+
+    /* ── 서버 상태 ── */
+    .server-status {
+      background: rgba(255, 255, 255, 0.55);
+      border-radius: 12px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot.green {
+      background: #3cb95a;
+    }
+
+    .dot.red {
+      background: #e04444;
+    }
+
+    .dot.yellow {
+      background: #e0a020;
+    }
+
+    /* ── 패널 ── */
+    .panel {
+      background: rgba(255, 255, 255, 0.72);
+      border-radius: 28px;
+      box-shadow: 0 18px 35px rgba(0, 0, 0, 0.13);
+      padding: 22px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ── 카메라 박스 ── */
+    .preview-box {
+      width: 100%;
+      aspect-ratio: 4/3;
+      border-radius: 20px;
+      background: #dde4ec;
+      border: 2px dashed rgba(70, 70, 70, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .preview-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 20px;
+      display: block;
+    }
+
+    .live-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: #111;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      z-index: 2;
+    }
+
+    .live-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      background: #f55;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    .scan-status {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      padding: 6px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .camera-placeholder {
+      text-align: center;
+      color: #999;
+    }
+
+    .plus-circle {
+      width: 72px;
+      height: 72px;
+      border: 4px solid #ccc;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      color: #ccc;
+      margin-bottom: 10px;
+    }
+
+    .small-text {
+      font-size: 12px;
+      color: #999;
+      line-height: 1.6;
+      margin-top: 4px;
+    }
+
+    /* ── 결과 화면 ── */
+    .section-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      margin-bottom: 16px;
+    }
+
+    .img-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .img-box {
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      background: #e0e6ec;
+      aspect-ratio: 1/1;
+    }
+
+    .img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .img-label {
+      position: absolute;
+      bottom: 10px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .result-metrics {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.82);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: #5b6470;
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .info-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-row span {
+      color: #6b7480;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .pill.danger {
+      background: #ffd4d4;
+      color: #c0292a;
+    }
+
+    .pill.safe {
+      background: #d7f5dd;
+      color: #1e7a36;
+    }
+
+    .rescan-btn {
+      background: #111;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      padding: 14px 36px;
+      border-radius: 999px;
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.15);
+      transition: 0.2s;
+    }
+
+    .rescan-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    /* ── 저장 목록 ── */
+    .filter-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 18px;
+    }
+
+    .filter-group label {
+      display: block;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .filter-group input {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1.5px solid rgba(0, 0, 0, 0.1);
+      color: #1f1f1f;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      width: 100px;
+    }
+
+    .search-btn {
+      background: #111;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: 0.2s;
+    }
+
+    .search-btn:hover {
+      background: #333;
+    }
+
+    .search-btn:disabled {
+      background: #bbb;
+      cursor: default;
+    }
+
+    .storage-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .storage-table th {
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid rgba(0, 0, 0, 0.08);
+      font-size: 12px;
+      color: #888;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .storage-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .storage-table tr:hover td {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    .tbl-pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tbl-pill.danger {
+      background: #ffd4d4;
+      color: #c0292a;
+    }
+
+    .tbl-pill.safe {
+      background: #d7f5dd;
+      color: #1e7a36;
+    }
+
+    /* ── 스피너 ── */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    .spinner.dark {
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-top-color: #4d7cff;
+    }
+
+    .error-msg {
+      color: #c0292a;
+      font-size: 13px;
+      margin-top: 8px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      .app {
+        padding: 16px;
+      }
+
+      .img-compare,
+      .result-metrics {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ★ 데스크톱(서버) IP를 여기서 설정하세요
+    const BASE = "http://192.168.0.100:8000";
+
+    const api = {
+      get: (p) => fetch(`${BASE}${p}`).then(r => r.json()),
+      post: (p, b) => fetch(`${BASE}${p}`, { method: "POST", body: b }).then(r => r.json()),
+      delete: (p) => fetch(`${BASE}${p}`, { method: "DELETE" }).then(r => r.json()),
+    };
+
+    function useHealth() {
+      const [health, setHealth] = React.useState(null);
+      const [failed, setFailed] = React.useState(false);
+      const refresh = React.useCallback(() => {
+        api.get("/health")
+          .then(d => { setHealth(d); setFailed(false); })
+          .catch(() => { setHealth(null); setFailed(true); });
+      }, []);
+      React.useEffect(() => {
+        refresh();
+        const t = setInterval(refresh, 5000);
+        return () => clearInterval(t);
+      }, [refresh]);
+      return { health, failed };
+    }
+
+    /* ── 상단 바 ── */
+    function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb }) {
+      const subtitles = { home: "SPOT CATCHER", result: "SCAN RESULT", storage: "DEFECT STORAGE" };
+      return (
+        <div className="topbar">
+          <div className="brand">
+            <div className="brand-mark">S</div>
+            <div>{subtitles[screen]}</div>
+          </div>
+          <div className="topbar-right">
+            {/* 결과 저장 토글 */}
+            <div className="save-toggle-box">
+              <label className="switch">
+                <input type="checkbox" checked={saveDb} onChange={e => setSaveDb(e.target.checked)} />
+                <span className="slider" />
+              </label>
+              <span>DB 저장 {saveDb ? "on" : "off"}</span>
+            </div>
+
+            {screen !== "home" && (
+              <button className="ghost-btn" onClick={() => setScreen("home")}>메인으로</button>
+            )}
+            <button
+              className={`nav-btn ${screen === "storage" ? "active" : ""}`}
+              onClick={() => setScreen("storage")}>저장 목록</button>
+
+            {/* 서버 상태 */}
+            <div className="server-status">
+              <span className={`dot ${failed ? "red" : health?.patchcore_ready ? "green" : "yellow"}`} />
+              {failed
+                ? "서버 오프라인"
+                : health?.patchcore_ready
+                  ? `디바이스: ${health.device} · 준비됨`
+                  : "모델 준비 중..."}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── 홈 화면 ── */
+    function HomeScreen({ setScreen, setLastResult, health, failed, saveDb }) {
+      const [loading, setLoading] = React.useState(false);
+      const [error, setError] = React.useState(null);
+      const [camReady, setCamReady] = React.useState(false);
+      const videoRef = React.useRef(null);
+      const streamRef = React.useRef(null);
+
+      React.useEffect(() => {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            streamRef.current = stream;
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              videoRef.current.play();
+            }
+            setCamReady(true);
+          })
+          .catch(() => setCamReady(false));
+        return () => {
+          if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+        };
+      }, []);
+
+      const canScan = health?.patchcore_ready && !failed && !loading && camReady;
+
+      const runScan = async () => {
+        setLoading(true); setError(null);
+        try {
+          const video = videoRef.current;
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext("2d").drawImage(video, 0, 0);
+          const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
+
+          const fd = new FormData();
+          fd.append("file", blob, "frame.jpg");
+          fd.append("save_to_db", String(saveDb));
+          const data = await fetch(`${BASE}/detect`, { method: "POST", body: fd }).then(r => r.json());
+
+          if (data.success) {
+            setLastResult(data);
+            setScreen("result");
+          } else {
+            setError(data.error || "오류가 발생했어요.");
+          }
+        } catch {
+          setError("서버에 연결하지 못했어요.");
+        }
+        setLoading(false);
+      };
+
+      return (
+        <div className="panel">
+          <div className="preview-box">
+            <div className="live-badge"><span className="live-dot" />LIVE</div>
+
+            {failed ? (
+              <div className="camera-placeholder">
+                <div className="plus-circle">+</div>
+                <div style={{ fontWeight: 600 }}>서버에 연결되지 않았어요</div>
+                <div className="small-text">python server.py 를 먼저 실행해 주세요</div>
+              </div>
+            ) : !camReady ? (
+              <div className="camera-placeholder">
+                <div className="plus-circle">+</div>
+                <div style={{ fontWeight: 600 }}>카메라 권한을 허용해 주세요</div>
+                <div className="small-text">브라우저 카메라 접근을 허용하면 시작됩니다</div>
+              </div>
+            ) : (
+              <video ref={videoRef} autoPlay playsInline muted
+                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 20, display: "block" }} />
+            )}
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 22 }}>
+            {health && !health.patchcore_ready && (
+              <p className="error-msg" style={{ marginBottom: 12 }}>현재 모델 미구현</p>
+            )}
+            <button
+              style={{
+                background: canScan ? "#b9d3ef" : "#d8dfe8",
+                border: "none", cursor: canScan ? "pointer" : "default",
+                padding: "16px 52px", borderRadius: "999px",
+                fontSize: 26, fontWeight: 800,
+                boxShadow: canScan ? "0 14px 24px rgba(0,0,0,0.15)" : "none",
+                transition: "0.2s", color: canScan ? "#1f1f1f" : "#aaa",
+              }}
+              onClick={runScan}
+              disabled={!canScan}
+              onMouseEnter={e => { if (canScan) e.target.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { e.target.style.transform = ""; }}
+            >
+              {loading ? <><span className="spinner" style={{ borderTopColor: "#555" }} /> 분석 중...</> : "SCAN"}
+            </button>
+            {error && <p className="error-msg" style={{ marginTop: 12 }}>{error}</p>}
+          </div>
+        </div>
+      );
+    }
+
+    /* ── 결과 화면 ── */
+    function ResultScreen({ result, setScreen }) {
+      if (!result) return (
+        <div className="panel" style={{ textAlign: "center", padding: 48, color: "#888" }}>
+          결과가 없어요. 메인으로 돌아가서 스캔을 기다려 주세요.
+        </div>
+      );
+
+      return (
+        <div className="panel">
+          <div className="section-title">검사 결과</div>
+
+          <div className="img-box" style={{ marginBottom: 18 }}>
+            <img src={`${BASE}${result.overlay_url}`} alt="불량 위치" />
+            <div className="img-label">불량 위치</div>
+          </div>
+
+          <div className="result-metrics">
+            <div className="metric-card">
+              <div className="metric-label">판정</div>
+              <div className="metric-value" style={{ color: result.is_anomaly ? "#c0292a" : "#1e7a36" }}>
+                {result.verdict}
+              </div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">추론 시간</div>
+              <div className="metric-value">{result.inference_time}s</div>
+            </div>
+          </div>
+
+          <div className="info-list" style={{ marginBottom: 24 }}>
+            <div className="info-row">
+              <span>판정</span>
+              <span className={`pill ${result.is_anomaly ? "danger" : "safe"}`} style={{ margin: 0 }}>
+                {result.is_anomaly ? "DEFECT DETECTED" : "NORMAL"}
+              </span>
+            </div>
+            <div className="info-row">
+              <span>DB 저장</span>
+              <strong style={{ color: result.saved_to_db ? "#1e7a36" : "#999" }}>
+                {result.saved_to_db ? "저장 완료" : "저장 안함"}
+              </strong>
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <button className="rescan-btn" onClick={() => setScreen("home")}>
+              다시 스캔하기
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── 저장 목록 화면 ── */
+    function StorageScreen() {
+      const [defects, setDefects] = React.useState(null);
+      const [loading, setLoading] = React.useState(false);
+      const [minScore, setMinScore] = React.useState(0.51);
+      const [error, setError] = React.useState(null);
+      const [selected, setSelected] = React.useState(null);
+      const [deleting, setDeleting] = React.useState(null);
+
+      const remove = async (id, e) => {
+        e.stopPropagation();
+        setDeleting(id);
+        try {
+          await api.delete(`/defects/${id}`);
+          setDefects(prev => ({ ...prev, defects: prev.defects.filter(d => d.id !== id), count: prev.count - 1 }));
+        } catch {
+          setError("삭제에 실패했어요.");
+        }
+        setDeleting(null);
+      };
+
+      const load = async () => {
+        setLoading(true); setError(null);
+        try {
+          const data = await api.get(`/defects?limit=200&min_score=${minScore}`);
+          setDefects(data);
+        } catch {
+          setError("목록을 불러오지 못했어요.");
+        }
+        setLoading(false);
+      };
+
+      React.useEffect(() => { load(); }, []);
+
+      return (
+        <div className="panel">
+          {/* 헤더 */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <div>
+              <div className="section-title" style={{ marginBottom: 2 }}>저장된 검사 결과</div>
+              {defects && <div style={{ fontSize: 13, color: "#888" }}>총 {defects.count}건</div>}
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>결함률</span>
+              <input type="number" value={minScore} min={0} max={1} step={0.05}
+                onChange={e => setMinScore(Number(e.target.value))}
+                style={{ background: "rgba(255,255,255,0.7)", border: "1.5px solid rgba(0,0,0,0.1)", color: "#1f1f1f", padding: "7px 10px", borderRadius: 10, fontSize: 14, width: 80 }} />
+              <button className="search-btn" onClick={load} disabled={loading}>
+                {loading ? <span className="spinner dark" /> : "조회"}
+              </button>
+            </div>
+          </div>
+
+          {error && <p className="error-msg">{error}</p>}
+
+          {defects && (defects.count === 0 ? (
+            <div className="small-text" style={{ padding: "20px 0" }}>저장된 결과가 없어요.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {defects.defects.map((d, i) => {
+                const score = typeof d.anomaly_score === "number" ? d.anomaly_score : parseFloat(d.anomaly_score);
+                const isDefect = score > 0.5;
+                return (
+                  <div key={i}
+                    onClick={() => d.overlay_url && setSelected(d)}
+                    style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      background: "rgba(255,255,255,0.6)", borderRadius: 14, padding: "14px 18px",
+                      cursor: d.overlay_url ? "pointer" : "default",
+                      transition: "0.15s", boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+                    }}
+                    onMouseEnter={e => { if (d.overlay_url) e.currentTarget.style.background = "rgba(255,255,255,0.9)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span style={{ fontSize: 12, color: "#ccc", fontFamily: "monospace", minWidth: 24 }}>#{d.id || i + 1}</span>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#333" }}>
+                          {d.created_at ? d.created_at.replace("T", " ").slice(0, 16) : "날짜 없음"}
+                        </div>
+                        <div style={{ fontSize: 12, color: isDefect ? "#c0292a" : "#1e7a36", marginTop: 2, fontWeight: 600 }}>
+                          {isDefect ? "불량 감지" : "정상"}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 20, fontWeight: 800, color: isDefect ? "#c0292a" : "#1e7a36" }}>
+                        {(score * 100).toFixed(0)}점
+                      </span>
+                      <span style={{ fontSize: 14, color: "#ccc" }}>›</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+
+          {/* 히트맵 모달 */}
+          {selected && (
+            <div onClick={() => setSelected(null)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, backdropFilter: "blur(6px)" }}>
+              <div onClick={e => e.stopPropagation()}
+                style={{ background: "#fff", borderRadius: 24, padding: 24, maxWidth: 500, width: "90%", boxShadow: "0 30px 60px rgba(0,0,0,0.3)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>불량 위치</div>
+                    <div style={{ fontSize: 12, color: "#999", marginTop: 3 }}>
+                      {selected.created_at ? selected.created_at.replace("T", " ").slice(0, 16) : ""}
+                    </div>
+                  </div>
+                  <button onClick={() => setSelected(null)}
+                    style={{ background: "#f0f0f0", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                    닫기
+                  </button>
+                </div>
+                <img src={`${BASE}${selected.overlay_url}`} alt="히트맵"
+                  style={{ width: "100%", borderRadius: 14, display: "block" }} />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── 루트 App ── */
+    function App() {
+      const [screen, setScreen] = React.useState("home");
+      const [lastResult, setLastResult] = React.useState(null);
+      const [saveDb, setSaveDb] = React.useState(false);
+      const { health, failed } = useHealth();
+
+      return (
+        <div className="app">
+          <Topbar
+            screen={screen} setScreen={setScreen}
+            health={health} failed={failed}
+            saveDb={saveDb} setSaveDb={setSaveDb}
+          />
+          {screen === "home" && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} saveDb={saveDb} />}
+          {screen === "result" && <ResultScreen result={lastResult} setScreen={setScreen} />}
+          {screen === "storage" && <StorageScreen />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+
+</html>
