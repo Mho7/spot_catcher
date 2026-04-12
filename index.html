@@ -264,6 +264,8 @@
     .model-label { font-size: 11px; font-weight: 600; color: #888; }
 
     /* ── Storage 레이아웃 ── */
+    .storage-search-fullpage { display: flex; justify-content: center; padding: 24px 16px; }
+    .storage-search-fullpage .panel.storage-sidebar { width: 100%; max-width: 460px; }
     .storage-layout { display: flex; gap: 16px; align-items: flex-start; }
     .storage-left { flex: 1; }
     .storage-left-panel { display: flex; align-items: center; justify-content: center; min-height: 320px; }
@@ -282,19 +284,80 @@
       width: 38px; height: 38px; border-radius: 50%;
       background: rgba(255,255,255,0.85); border: none; cursor: pointer;
       font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .storage-list { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; }
+    .storage-date-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.9); border-radius: 999px;
+      padding: 10px 16px; margin-bottom: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .storage-date-bar .date-center {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .date-input-wrapper {
+      display: flex; align-items: center; gap: 4px; cursor: pointer;
+    }
+    .date-input-wrapper input[type="date"] {
+      border: none; background: transparent; font-size: 13px;
+      color: #333; outline: none; cursor: pointer; width: 130px;
+    }
+    .date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
+    .storage-date-sep { font-size: 13px; color: #aaa; margin-left: -30px; margin-right: 12px; }
+    .storage-list { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; }
     .storage-item { display: flex; align-items: center; gap: 10px; cursor: pointer; }
     .storage-item:hover .storage-item-thumb { background: rgba(255,255,255,1); }
     .storage-item-thumb {
-      background: rgba(255,255,255,0.75); border: none; border-radius: 8px;
-      padding: 8px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
-      flex-shrink: 0; transition: 0.15s;
+      width: 56px; height: 56px; flex-shrink: 0;
+      background: rgba(210,218,228,0.8); border: none; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: #888; cursor: pointer;
+      transition: 0.15s; overflow: hidden;
     }
-    .storage-item-info { display: flex; flex-direction: column; gap: 2px; }
+    .storage-item-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+    .storage-item-info { display: flex; flex-direction: column; gap: 3px; }
     .storage-item-date { font-size: 12px; color: #666; }
-    .storage-item-score { font-size: 12px; color: #c0292a; font-weight: 700; }
+    .storage-item-score { font-size: 13px; color: #c0292a; font-weight: 700; }
+
+    /* ── 탭 모드 전환 ── */
+    .mode-tabs { display: flex; gap: 8px; margin-bottom: 0; margin-left: 30px}
+    .mode-tab {
+      padding: 8px 20px; border-radius: 12px 12px 0 0;
+      border: none; cursor: pointer;
+      font-size: 13px; font-weight: 600;
+      background: rgba(200,210,220,0.6); color: #666;
+      transition: 0.15s;
+    }
+    .mode-tab.active { background: rgba(232, 232, 232, 0.72); color: #111; }
+
+    /* ── 업로드 영역 ── */
+    .upload-drop-area {
+      width: 100%; aspect-ratio: 4/3;
+      border-radius: 20px;
+      background: #dde4ec;
+      border: 2px dashed rgba(70,70,70,0.2);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: 0.2s;
+    }
+    .upload-drop-area:hover { border-color: rgba(70,70,70,0.4); background: #d0dae5; }
+    .upload-drop-area img { width: 100%; height: 100%; object-fit: cover; border-radius: 18px; display: block; }
+    .upload-hint { color: #999; text-align: center; }
+    .upload-badge {
+      position: absolute; top: 14px; left: 14px;
+      background: #555; color: #fff;
+      padding: 6px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; z-index: 2;
+    }
+
+    /* ── source 뱃지 ── */
+    .source-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 7px;
+      border-radius: 999px; display: inline-block;
+    }
+    .source-badge.camera { background: #d4e8ff; color: #1a5db0; }
+    .source-badge.upload { background: #e8d4ff; color: #6a1ab0; }
 
     @media (max-width: 640px) {
       .app { padding: 16px; }
@@ -333,7 +396,7 @@
   }
 
   /* ── 상단 바 ── */
-  function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb }) {
+  function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb, setStorageSearch }) {
     const subtitles = { home: "", result: "", storage: "" };
     return (
       <div className="topbar">
@@ -362,7 +425,7 @@
               {screen !== "home" && (
                 <button className="ghost-btn" onClick={() => setScreen("home")}>메인으로</button>
               )}
-              <button className="nav-btn" onClick={() => setScreen("storage")}>≡ storage</button>
+              <button className="nav-btn" onClick={() => { setScreen("storage"); setStorageSearch(false); }}>≡ storage</button>
             </>
           )}
 
@@ -383,10 +446,15 @@
 
   /* ── 홈 화면 ── */
   function HomeScreen({ setScreen, setLastResult, health, failed, saveDb }) {
+    const [mode, setMode]       = React.useState("camera"); // "camera" | "upload"
     const [loading, setLoading] = React.useState(false);
     const [error, setError]     = React.useState(null);
+    const [uploadFile, setUploadFile]     = React.useState(null);
+    const [uploadPreview, setUploadPreview] = React.useState(null);
+    const fileInputRef = React.useRef(null);
 
     const canScan = health?.patchcore_ready && !failed && !loading;
+    const canAnalyzeUpload = canScan && uploadFile !== null;
 
     const runScan = async () => {
       setLoading(true); setError(null);
@@ -406,10 +474,43 @@
       setLoading(false);
     };
 
+    const runUpload = async () => {
+      if (!uploadFile) return;
+      setLoading(true); setError(null);
+      try {
+        const fd = new FormData();
+        fd.append("file", uploadFile);
+        fd.append("save_to_db", String(saveDb));
+        const data = await api.post("/upload/analyze", fd);
+        if (data.success) {
+          setLastResult(data);
+          setScreen("result");
+        } else {
+          setError(data.error || "오류가 발생했어요.");
+        }
+      } catch {
+        setError("서버에 연결하지 못했어요.");
+      }
+      setLoading(false);
+    };
+
+    const onFileChange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploadFile(file);
+      setUploadPreview(URL.createObjectURL(file));
+      setError(null);
+    };
+
     return (
       <div>
         <div className="camera-card-wrapper">
-          <div className="camera-tab">📷 camera</div>
+          <div className="mode-tabs">
+            <button className={`mode-tab${mode === "camera" ? " active" : ""}`} onClick={() => setMode("camera")}>
+              📷 camera
+            </button>
+          </div>
+
           <div className="panel camera-panel">
             <div className="preview-box">
               {failed ? (
@@ -508,10 +609,15 @@
   }
 
   /* ── 저장 목록 화면 ── */
-  function StorageScreen({ onSelect, selected }) {
+  function StorageScreen({ onSelect, selected, showSearch, setShowSearch }) {
     const [defects, setDefects] = React.useState(null);
     const [loading, setLoading] = React.useState(false);
     const [error, setError]     = React.useState(null);
+    const [dateFrom, setDateFrom] = React.useState("");
+    const [dateTo, setDateTo]     = React.useState("");
+    const dateFromRef = React.useRef(null);
+    const dateToRef   = React.useRef(null);
+
     const load = async () => {
       setLoading(true); setError(null);
       try {
@@ -523,34 +629,90 @@
       setLoading(false);
     };
 
+    const handleDelete = async (e, id) => {
+      e.stopPropagation();
+      try {
+        await api.delete(`/defects/${id}`);
+        load();
+      } catch {
+        setError("삭제에 실패했어요.");
+      }
+    };
+
+    const filteredDefects = React.useMemo(() => {
+      if (!defects) return [];
+      return defects.defects.filter(d => {
+        if (!d.timestamp) return true;
+        const date = d.timestamp.slice(0, 10);
+        if (dateFrom && date < dateFrom) return false;
+        if (dateTo   && date > dateTo)   return false;
+        return true;
+      });
+    }, [defects, dateFrom, dateTo]);
+
     React.useEffect(() => { load(); }, []);
 
     return (
       <div className="panel storage-sidebar">
-        <div className="storage-sidebar-header">
-          <span style={{ fontWeight: 700, fontSize: 15 }}>storage</span>
-          <button className="storage-search-btn" onClick={load} title="새로고침">
-            {loading ? <span className="spinner dark" /> : "🔍"}
-          </button>
-        </div>
+        {showSearch ? (
+          <div className="storage-date-bar">
+            <span style={{ fontSize: 16, color: "#888" }}>🔍</span>
+            <div className="date-center">
+              <div className="date-input-wrapper">
+                <span style={{ fontSize: 13, cursor: "pointer" }} onClick={() => dateFromRef.current?.showPicker()}>📅</span>
+                <input ref={dateFromRef} type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+              </div>
+              <span className="storage-date-sep">~</span>
+              <div className="date-input-wrapper">
+                <span style={{ fontSize: 13, cursor: "pointer" }} onClick={() => dateToRef.current?.showPicker()}>📅</span>
+                <input ref={dateToRef} type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+              </div>
+            </div>
+            <button onClick={() => { setShowSearch(false); setDateFrom(""); setDateTo(""); }}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#aaa" }}>✕</button>
+          </div>
+        ) : (
+          <div className="storage-sidebar-header">
+            <span style={{ fontWeight: 700, fontSize: 15 }}>storage</span>
+            <button className="storage-search-btn" onClick={() => setShowSearch(true)} title="날짜 검색">
+              {loading ? <span className="spinner dark" /> : "🔍"}
+            </button>
+          </div>
+        )}
 
         {error && <p className="error-msg">{error}</p>}
 
         <div className="storage-list">
-          {defects && defects.count === 0 && (
+          {defects && filteredDefects.length === 0 && (
             <div className="small-text" style={{ padding: "12px 0" }}>저장된 결과가 없어요.</div>
           )}
-          {defects && defects.defects.map((d, i) => {
+          {defects && filteredDefects.map((d, i) => {
             const score = typeof d.anomaly_score === "number" ? d.anomaly_score : parseFloat(d.anomaly_score);
             const defectRate = Math.round(score * 100);
-            const dateStr = d.created_at ? d.created_at.slice(0, 10).replace(/-/g, ".") : "-";
+            const tsStr = d.timestamp ? d.timestamp.slice(0, 10).replace(/-/g, ".") : "-";
+            const isUpload = d.source === "upload";
             return (
-              <div key={i} className="storage-item" onClick={() => d.overlay_url && onSelect(d)}>
-                <button className="storage-item-thumb">사진</button>
-                <div className="storage-item-info">
-                  <div className="storage-item-date">{dateStr}</div>
-                  <div className="storage-item-score">결함율 {defectRate}</div>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div className="storage-item" style={{ flex: 1 }} onClick={() => d.overlay_url && onSelect(d)}>
+                  <button className="storage-item-thumb">
+                    {d.original_url
+                      ? <img src={`${BASE}${d.original_url}`} alt="사진" onError={e => { e.target.style.display="none"; e.target.parentNode.innerText="사진"; }} />
+                      : "사진"}
+                  </button>
+                  <div className="storage-item-info">
+                    <div className="storage-item-date">{tsStr}</div>
+                    <div className="storage-item-score">결함율 {defectRate}%</div>
+                  </div>
                 </div>
+                <button
+                  onClick={(e) => handleDelete(e, d.id)}
+                  title="삭제"
+                  style={{
+                    background: "rgba(255,255,255,0.7)", border: "none", cursor: "pointer",
+                    borderRadius: 8, padding: "6px 8px", fontSize: 14, flexShrink: 0,
+                    color: "#c0292a",
+                  }}
+                >✕</button>
               </div>
             );
           })}
@@ -566,6 +728,7 @@
     const [lastResult, setLastResult]           = React.useState(null);
     const [saveDb, setSaveDb]                   = React.useState(false);
     const [storageSelected, setStorageSelected] = React.useState(null);
+    const [storageSearch, setStorageSearch]     = React.useState(false);
     const { health, failed } = useHealth();
 
     return (
@@ -574,30 +737,54 @@
           screen={screen} setScreen={setScreen}
           health={health} failed={failed}
           saveDb={saveDb} setSaveDb={setSaveDb}
+          setStorageSearch={setStorageSearch}
         />
         {screen === "home"   && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} saveDb={saveDb} />}
         {screen === "result" && <ResultScreen result={lastResult} setScreen={setScreen} />}
         {screen === "storage" && (
-          <div className="storage-layout">
-            <div className="storage-left">
-              <div className="panel storage-left-panel" style={{ borderRadius: 28 }}>
-                {storageSelected ? (
-                  <img src={`${BASE}${storageSelected.overlay_url}`} alt="결과 이미지"
-                    style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 20 }} />
-                ) : (
-                  <div className="storage-placeholder">
-                    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
-                      <line x1="7" y1="8" x2="17" y2="8"/>
-                      <line x1="7" y1="12" x2="17" y2="12"/>
-                      <line x1="7" y1="16" x2="13" y2="16"/>
-                    </svg>
-                  </div>
-                )}
-              </div>
+          storageSearch ? (
+            <div className="storage-search-fullpage">
+              <StorageScreen onSelect={d => { setStorageSelected(d); setStorageSearch(false); }} selected={storageSelected}
+                showSearch={storageSearch} setShowSearch={setStorageSearch} />
             </div>
-            <StorageScreen onSelect={setStorageSelected} selected={storageSelected} />
-          </div>
+          ) : (
+            <div className="storage-layout">
+              <div className="storage-left">
+                <div className="panel storage-left-panel" style={{ borderRadius: 28 }}>
+                  {storageSelected ? (() => {
+                    const score = Math.round((storageSelected.anomaly_score || 0) * 100);
+                    const dateStr = storageSelected.timestamp ? storageSelected.timestamp.slice(0, 10).replace(/-/g, ".") : "-";
+                    return (
+                      <div style={{ display: "flex", gap: 24, alignItems: "center", width: "100%", padding: "8px 4px" }}>
+                        <div style={{ flex: 1.2, borderRadius: 16, overflow: "hidden", background: "#d8dfe8", aspectRatio: "4/3" }}>
+                          <img src={`${BASE}${storageSelected.original_url || storageSelected.overlay_url}`} alt="사진"
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        </div>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", minHeight: 120 }}>
+                          <div style={{ fontSize: 25, color: "#555", fontWeight: 500 }}>{dateStr}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ fontSize: 24, color: "#555" }}>결함율</div>
+                            <div style={{ fontSize: 48, fontWeight: 800, color: "#c0292a", lineHeight: 1 }}>{score}<span style={{ fontSize: 24, fontWeight: 600 }}>%</span></div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })() : (
+                    <div className="storage-placeholder">
+                      <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+                        <line x1="7" y1="8" x2="17" y2="8"/>
+                        <line x1="7" y1="12" x2="17" y2="12"/>
+                        <line x1="7" y1="16" x2="13" y2="16"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <StorageScreen onSelect={setStorageSelected} selected={storageSelected}
+                showSearch={storageSearch} setShowSearch={setStorageSearch} />
+            </div>
+          )
         )}
       </div>
     );
