@@ -51,7 +51,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/")
 async def index():
-    return FileResponse(os.path.join(BASE_DIR, "..", "client", "index.html"))
+    return FileResponse(os.path.join(BASE_DIR, "..", "client", "mk.html"))
 
 
 # ========================================
