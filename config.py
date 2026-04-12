@@ -9,7 +9,7 @@ import os
 # ============================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-TRAIN_DIR = os.path.join(DATA_DIR, "train", "good")
+TRAIN_DIR = os.path.join(DATA_DIR, "train", "1920")
 TEST_GOOD_DIR = os.path.join(DATA_DIR, "test", "good")
 TEST_BAD_DIR = os.path.join(DATA_DIR, "test", "bad")
 SAVE_DIR = os.path.join(BASE_DIR, "saved_models")
