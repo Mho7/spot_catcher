@@ -224,9 +224,21 @@ async def camera_capture(save_to_db: str = Form("false")):
 # ========================================
 # 결함 DB 조회 API
 # ========================================
+# 더미 데이터 (테스트용 — 나중에 이 블록 삭제)
+_DUMMY_DEFECTS = [
+    {"id": -1, "timestamp": "2026-04-12 09:10:00", "source": "camera",  "model_type": "patchcore", "filename": None,         "anomaly_score": 0.82, "original_url": "/static/dummy1.png",    "overlay_url": "/static/dummy1_ov.png"},
+    {"id": -2, "timestamp": "2026-04-12 10:25:00", "source": "camera",  "model_type": "patchcore", "filename": None,         "anomaly_score": 0.45, "original_url": "/static/dummy2.png",    "overlay_url": "/static/dummy2_ov.png"},
+    {"id": -3, "timestamp": "2026-04-12 11:03:00", "source": "upload",  "model_type": "patchcore", "filename": "sample.jpg", "anomaly_score": 0.91, "original_url": "/static/dummy3.png",    "overlay_url": "/static/dummy3_ov.png"},
+    {"id": -4, "timestamp": "2026-04-12 13:47:00", "source": "camera",  "model_type": "patchcore", "filename": None,         "anomaly_score": 0.33, "original_url": "/static/dummy4.png",    "overlay_url": "/static/dummy4_ov.png"},
+    {"id": -5, "timestamp": "2026-04-12 15:20:00", "source": "upload",  "model_type": "patchcore", "filename": "test.png",   "anomaly_score": 0.77, "original_url": "/static/dummy5.png",    "overlay_url": "/static/dummy5_ov.png"},
+]
+# ========================================
+
 @app.get("/defects")
 async def defects_list(limit: int = 100, min_score: float = 0.3):
     data = get_defects(limit=limit, min_score=min_score)
+    if not data:  # 더미 데이터 (테스트용 — 나중에 이 줄 삭제)
+        data = _DUMMY_DEFECTS  # 더미 데이터 (테스트용 — 나중에 이 줄 삭제)
     return {"count": len(data), "defects": data}
 
 
@@ -256,6 +268,7 @@ async def health():
 async def shutdown():
     if camera_cap and camera_cap.isOpened():
         camera_cap.release()
+
 
 
 if __name__ == "__main__":
