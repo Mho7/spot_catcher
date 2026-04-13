@@ -1,0 +1,83 @@
+================================================================
+  ham_develop patchcore.py에 top-k 추가 방법
+  (k-NN은 k=1 고정, 벡터화로 속도만 개선)
+================================================================
+
+[ 수정 위치 ]
+  models/patchcore.py  →  196번째 줄  def predict(self, image_tensor):
+
+
+----------------------------------------------------------------
+[ 1단계 ]  함수 시그니처 변경
+----------------------------------------------------------------
+
+변경 전:
+    def predict(self, image_tensor):
+
+변경 후:
+    def predict(self, image_tensor, topk=1):
+
+
+----------------------------------------------------------------
+[ 2단계 ]  거리 계산 부분 교체 (for 루프 → 벡터화)
+----------------------------------------------------------------
+
+변경 전 (for 루프 방식):
+    distances = []
+    for patch in patches:
+        dist = np.linalg.norm(self.memory_bank - patch, axis=1)
+        min_dist = dist.min()
+        distances.append(min_dist)
+    distances = np.array(distances)
+
+변경 후 (벡터화, k-NN k=1 고정):
+    # 전체 거리 행렬 한번에 계산 [P, M]
+    patches_sq    = np.sum(patches ** 2, axis=1, keepdims=True)
+    memory_sq     = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T
+    cross         = patches @ self.memory_bank.T
+    dist_sq       = np.maximum(patches_sq + memory_sq - 2 * cross, 0)
+    distances     = np.sqrt(dist_sq).min(axis=1)                 # [P]
+
+
+----------------------------------------------------------------
+[ 3단계 ]  anomaly_score 계산 부분 교체
+----------------------------------------------------------------
+
+변경 전:
+    anomaly_score = float(distances.max())
+
+변경 후:
+    # top-k: 가장 이상한 topk개 패치 평균
+    if topk == 1:
+        anomaly_score = float(distances.max())
+    else:
+        topk_ = min(topk, len(distances))
+        anomaly_score = float(np.sort(distances)[-topk_:].mean())
+
+
+----------------------------------------------------------------
+[ 사용 예시 ]
+----------------------------------------------------------------
+
+    # 기본 (기존과 동일)
+    score, amap = model.predict(tensor)
+
+    # top-k k=3
+    score, amap = model.predict(tensor, topk=3)
+
+    # top-k k=5
+    score, amap = model.predict(tensor, topk=5)
+
+
+----------------------------------------------------------------
+[ 참고 ]
+----------------------------------------------------------------
+
+  - k-NN k=1 고정: 메모리 뱅크에서 가장 가까운 1개만 사용
+    (for 루프 → 벡터화로 교체하여 속도 개선)
+
+  - topk : 이미지 점수 산출 시 상위 k개 이상 패치 평균 사용
+           클수록 단일 노이즈 패치에 덜 민감해짐
+           작을수록 미세 결함 하나에도 민감하게 반응
+
+================================================================

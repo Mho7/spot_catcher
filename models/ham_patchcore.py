@@ -22,8 +22,7 @@ import pickle
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    PATCHCORE_BACKBONE, PATCHCORE_LAYERS, CORESET_RATIO, SAVE_DIR,
-    USE_AGGREGATION, AGGREGATION_KERNEL_SIZE
+    PATCHCORE_BACKBONE, PATCHCORE_LAYERS, CORESET_RATIO, SAVE_DIR
 )
 
 
@@ -40,22 +39,16 @@ class PatchCore:
     """
     
     def __init__(self, backbone=PATCHCORE_BACKBONE, layers=PATCHCORE_LAYERS,
-                 coreset_ratio=CORESET_RATIO,
-                 use_aggregation=USE_AGGREGATION,
-                 aggregation_kernel_size=AGGREGATION_KERNEL_SIZE):
+                 coreset_ratio=CORESET_RATIO):
         """
         Args:
             backbone: 사전학습 백본 네트워크 이름
             layers: 특징을 추출할 레이어 이름 리스트
             coreset_ratio: 메모리 뱅크에서 유지할 특징 비율
-            use_aggregation: True=avg_pool2d 적용, False=원시 패치 사용
-            aggregation_kernel_size: avg_pool2d 커널 크기 (홀수 권장: 3, 5, 7)
         """
         self.device = torch.device("cpu")  # CPU 모드
         self.layers = layers
         self.coreset_ratio = coreset_ratio
-        self.use_aggregation = use_aggregation
-        self.aggregation_kernel_size = aggregation_kernel_size
         
         # 메모리 뱅크 (학습 후 채워짐)
         self.memory_bank = None
@@ -63,8 +56,6 @@ class PatchCore:
         # ========================================
         # 1. 사전학습된 백본 네트워크 로드
         # ========================================
-        print(f"[INFO] 백본 네트워크 로드 중: {backbone}")
-        print("   (최초 실행 시 모델 다운로드에 시간이 걸릴 수 있습니다)")
         
         self.backbone = getattr(models, backbone)(weights='IMAGENET1K_V1')
         self.backbone.to(self.device)
@@ -85,10 +76,6 @@ class PatchCore:
             layer = dict(self.backbone.named_children())[layer_name]
             layer.register_forward_hook(get_hook(layer_name))
         
-        print(f"추출 레이어: {self.layers}")
-        agg_status = f"ON (kernel={self.aggregation_kernel_size})" if self.use_aggregation else "OFF"
-        print(f"Aggregation(avg_pool2d): {agg_status}")
-        print("백본 준비 완\n")
     
     #  aggregation 방식을 채택함
     def _extract_features(self, images):
@@ -117,16 +104,8 @@ class PatchCore:
         
         
         combined = torch.cat(all_features, dim=1)
-        # 주변 패치 평균으로 특징을 부드럽게 만듦 (노이즈 감소 효과)
-        # config.py의 USE_AGGREGATION / AGGREGATION_KERNEL_SIZE 로 제어
-        if self.use_aggregation:
-            pad = self.aggregation_kernel_size // 2
-            combined = F.avg_pool2d(
-                combined,
-                kernel_size=self.aggregation_kernel_size,
-                stride=1,
-                padding=pad,
-            )
+        # 추가된 부분 주변 패치 평균으로 
+        combined = F.avg_pool2d(combined, kernel_size=3, stride=1, padding=1)
 
         B, C, H, W = combined.shape
         patches = combined.permute(0, 2, 3, 1).reshape(B, H * W, C)
@@ -141,16 +120,12 @@ class PatchCore:
         Args:
             dataloader: 정상 이미지 DataLoader
         """
-        print("=" * 50)
-        print("PatchCore 학습 시작 (메모리 뱅크 구축)")
-        print("=" * 50)
         
         all_patches = []
         
         # ========================================
         # Step 1: 모든 정상 이미지에서 패치 특징 추출
         # ========================================
-        print("\n[INFO] 정상 이미지에서 패치 특징 추출 중...")
         for images, filenames in tqdm(dataloader, desc="특징 추출"):
             patches, self.feature_map_size = self._extract_features(images)
             all_patches.append(patches.cpu().numpy())
@@ -159,15 +134,12 @@ class PatchCore:
         all_patches = np.concatenate(all_patches, axis=0)  # [N, num_patches, C]
         all_patches = all_patches.reshape(-1, all_patches.shape[-1])  # [N*num_patches, C]
         
-        print(f"   총 패치 수: {all_patches.shape[0]:,}")
-        print(f"   패치 특징 차원: {all_patches.shape[1]}")
         
         # ========================================
         # Step 2: Coreset Subsampling (핵심 패치만 선별)
         # ========================================
         # 모든 패치를 저장하면 메모리/속도 문제 → 대표적인 것만 남김
         n_select = max(1, int(all_patches.shape[0] * self.coreset_ratio))
-        print(f"\n[INFO] Coreset Subsampling: {all_patches.shape[0]:,} → {n_select:,} 패치")
         
         if n_select < all_patches.shape[0]:
             # Greedy Coreset: 가장 멀리 떨어진 패치를 순차적으로 선택
@@ -175,9 +147,6 @@ class PatchCore:
         else:
             self.memory_bank = all_patches
         
-        self._memory_bank_sq = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T
-        print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")
-        print("\n[OK] PatchCore 학습 완료!")
     
     def _greedy_coreset(self, features, n_select):
         """
@@ -192,7 +161,6 @@ class PatchCore:
         Returns:
             선택된 패치 특징 [n_select, C]
         """
-        print("   Coreset 선택 중 (시간이 걸릴 수 있습니다)...")
         
         # 차원 축소로 속도 향상 (옵션)
         if features.shape[1] > 128:
@@ -225,55 +193,49 @@ class PatchCore:
         
         return features[selected_indices]
     
-    def predict(self, image_tensor, knn_k=1, topk=1):
+    def predict(self, image_tensor):
         """
         단일 이미지의 이상 탐지
 
         Args:
             image_tensor: 전처리된 이미지 텐서 [1, 3, H, W] 또는 [3, H, W]
-            knn_k: 메모리 뱅크에서 참조할 최근접 이웃 수 (기본 1)
-            topk:  이미지 점수 산출 시 사용할 상위 이상 패치 수 (기본 1 = max)
 
         Returns:
-            anomaly_score: 이미지 전체 이상 점수 (float)
-            anomaly_map:   픽셀별 이상 점수 맵 (numpy, [H, W])
+            anomaly_score: 이미지 전체 이상 점수 (float, 높을수록 이상)
+            anomaly_map: 픽셀별 이상 점수 맵 (numpy, [H_orig, W_orig])
         """
         if self.memory_bank is None:
             raise RuntimeError("먼저 fit()으로 학습을 수행하세요!")
 
+        # 차원 맞추기
         if image_tensor.dim() == 3:
-            image_tensor = image_tensor.unsqueeze(0)
+            image_tensor = image_tensor.unsqueeze(0)  # [3,H,W] → [1,3,H,W]
 
+        # 패치 특징 추출
         patches, (H, W) = self._extract_features(image_tensor)
-        patches = patches.cpu().numpy().reshape(-1, patches.shape[-1])  # [P, C]
+        patches = patches.cpu().numpy().reshape(-1, patches.shape[-1])  # [H*W, C]
 
-        # 거리 계산
-        patches_sq = np.sum(patches ** 2, axis=1, keepdims=True)        # [P, 1]
-        memory_sq  = getattr(self, '_memory_bank_sq',
-                             np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T)  # [1, M]
-        cross      = patches @ self.memory_bank.T                        # [P, M]
-        dist_sq    = np.maximum(patches_sq + memory_sq - 2 * cross, 0)
-        distances_all = np.sqrt(dist_sq)                                 # [P, M]
+        # ========================================
+        # 메모리 뱅크와의 거리 계산 (k-NN k=1 고정, 벡터화)
+        # ========================================
+        patches_sq    = np.sum(patches ** 2, axis=1, keepdims=True)         # [P, 1]
+        memory_sq     = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T  # [1, M]
+        cross         = patches @ self.memory_bank.T                         # [P, M]
+        dist_sq       = np.maximum(patches_sq + memory_sq - 2 * cross, 0)
+        distances     = np.sqrt(dist_sq).min(axis=1)                        # [P]
 
-        # k-NN: 가장 가까운 knn_k개 평균
-        if knn_k == 1:
-            distances = distances_all.min(axis=1)                        # [P]
-        else:
-            knn_k_ = min(knn_k, distances_all.shape[1])
-            distances = np.sort(distances_all, axis=1)[:, :knn_k_].mean(axis=1)  # [P]
-
-        # 이상 맵
+        # 이상 맵: [H*W] → [H, W]로 reshape
         anomaly_map = distances.reshape(H, W)
+
+        # 가우시안 스무딩
         anomaly_map = gaussian_filter(anomaly_map, sigma=2)
+
+        # 0~1 범위로 정규화
         if anomaly_map.max() > anomaly_map.min():
             anomaly_map = (anomaly_map - anomaly_map.min()) / (anomaly_map.max() - anomaly_map.min())
 
-        # top-k: 가장 이상한 topk개 패치 평균
-        if topk == 1:
-            anomaly_score = float(distances.max())
-        else:
-            topk_ = min(topk, len(distances))
-            anomaly_score = float(np.sort(distances)[-topk_:].mean())
+        # 전체 이상 점수 = 최대 패치 거리
+        anomaly_score = float(distances.max())
 
         return anomaly_score, anomaly_map
     
@@ -287,13 +249,10 @@ class PatchCore:
             'feature_map_size': self.feature_map_size,
             'layers': self.layers,
             'coreset_ratio': self.coreset_ratio,
-            'use_aggregation': self.use_aggregation,
-            'aggregation_kernel_size': self.aggregation_kernel_size,
         }
         
         with open(path, 'wb') as f:
             pickle.dump(save_data, f)
-        print(f"[OK] PatchCore 모델 저장: {path}")
     
     def load(self, path=None):
         """메모리 뱅크 로드"""
@@ -305,11 +264,3 @@ class PatchCore:
         
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
-        self.use_aggregation = save_data.get('use_aggregation', True)
-        self.aggregation_kernel_size = save_data.get('aggregation_kernel_size', 3)
-        # 추론 시 반복 계산 방지용으로 미리 계산
-        self._memory_bank_sq = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T
-        print(f"[OK] PatchCore 모델 로드: {path}")
-        print(f"   메모리 뱅크 크기: {self.memory_bank.shape}")
-        agg_status = f"ON (kernel={self.aggregation_kernel_size})" if self.use_aggregation else "OFF"
-        print(f"   Aggregation: {agg_status}")

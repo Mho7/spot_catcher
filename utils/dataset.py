@@ -99,30 +99,39 @@ def get_train_transform():
     - ColorJitter: 공장 조명 밝기/대비 변화 시뮬레이션
     """
     return transforms.Compose([
+        transforms.Lambda(_normalize_brightness),
         transforms.RandomRotation(degrees=5),
         transforms.RandomAffine(degrees=0, translate=(0.03, 0.03)),
-        transforms.ColorJitter(brightness=0.3, contrast=0.2),
         transforms.Resize(IMAGE_SIZE),
         transforms.ToTensor(),
         transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
     ])
 
 
+def _normalize_brightness(img, target=128):
+    """모든 이미지의 평균 밝기를 target으로 통일"""
+    import numpy as np
+    arr = np.array(img, dtype=np.float32)
+    current = arr.mean()
+    if current > 0:
+        arr = (arr * (target / current)).clip(0, 255)
+    return Image.fromarray(arr.astype(np.uint8))
+
+
 def get_default_transform():
     """
     기본 이미지 전처리 파이프라인 (추론/테스트용, 증강 없음)
 
-    1. 리사이즈: 모든 이미지를 동일한 크기로
-    2. 텐서 변환: 이미지를 PyTorch 텐서로 (0~1 범위)
-    3. 정규화: ImageNet 평균/표준편차로 정규화
+    1. 밝기 정규화: 히스토그램 평활화로 조명 차이 제거
+    2. 리사이즈: 모든 이미지를 동일한 크기로
+    3. 텐서 변환: 이미지를 PyTorch 텐서로 (0~1 범위)
+    4. 정규화: ImageNet 평균/표준편차로 정규화
     """
     return transforms.Compose([
-        transforms.Resize(IMAGE_SIZE),  # (224, 224)로 리사이즈
-        transforms.ToTensor(),          # [0, 255] → [0.0, 1.0]
-        transforms.Normalize(           # ImageNet 정규화
-            mean=IMAGENET_MEAN,
-            std=IMAGENET_STD
-        )
+        transforms.Lambda(_normalize_brightness),
+        transforms.Resize(IMAGE_SIZE),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
     ])
 
 
