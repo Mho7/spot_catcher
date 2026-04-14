@@ -193,12 +193,28 @@ class PatchCore:
         
         return features[selected_indices]
     
+    def _knn_search(self, patches):
+        """
+        패치와 메모리 뱅크 간 k-NN 거리 계산 (k=1: 가장 가까운 1개)
+
+        Args:
+            patches: 쿼리 패치 [N, C]
+        Returns:
+            distances: 각 패치의 최근접 거리 [N]
+        """
+        patches_sq = np.sum(patches ** 2, axis=1, keepdims=True)
+        memory_sq  = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T
+        cross      = patches @ self.memory_bank.T
+        dist_sq    = np.maximum(patches_sq + memory_sq - 2 * cross, 0)
+        return np.sqrt(dist_sq).min(axis=1)  # [N]
+
     def predict(self, image_tensor):
         """
         단일 이미지의 이상 탐지
 
         Args:
             image_tensor: 전처리된 이미지 텐서 [1, 3, H, W] 또는 [3, H, W]
+            top_k: 이미지 점수 계산에 사용할 상위 패치 수
 
         Returns:
             anomaly_score: 이미지 전체 이상 점수 (float, 높을수록 이상)
@@ -216,13 +232,9 @@ class PatchCore:
         patches = patches.cpu().numpy().reshape(-1, patches.shape[-1])  # [H*W, C]
 
         # ========================================
-        # 메모리 뱅크와의 거리 계산 (k-NN k=1 고정, 벡터화)
+        # k-NN (k=1): 각 패치의 메모리 뱅크 최근접 거리
         # ========================================
-        patches_sq    = np.sum(patches ** 2, axis=1, keepdims=True)         # [P, 1]
-        memory_sq     = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T  # [1, M]
-        cross         = patches @ self.memory_bank.T                         # [P, M]
-        dist_sq       = np.maximum(patches_sq + memory_sq - 2 * cross, 0)
-        distances     = np.sqrt(dist_sq).min(axis=1)                        # [P]
+        distances = self._knn_search(patches)  # [H*W]
 
         # 이상 맵: [H*W] → [H, W]로 reshape
         anomaly_map = distances.reshape(H, W)
@@ -234,8 +246,11 @@ class PatchCore:
         if anomaly_map.max() > anomaly_map.min():
             anomaly_map = (anomaly_map - anomaly_map.min()) / (anomaly_map.max() - anomaly_map.min())
 
-        # 전체 이상 점수 = 최대 패치 거리
-        anomaly_score = float(distances.max())
+        # ========================================
+        # top-k (k=5): 가장 이상한 패치 5개의 평균으로 이미지 점수 계산
+        # ========================================
+        top_k = min(5, len(distances))
+        anomaly_score = float(np.sort(distances)[-top_k:].mean())
 
         return anomaly_score, anomaly_map
     
