@@ -19,7 +19,7 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-IMAGE_SIZE = (224, 224)
+IMAGE_SIZE = (320, 320)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
