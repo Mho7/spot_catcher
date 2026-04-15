@@ -4,7 +4,6 @@ import torch
 import torch.nn.functional as F
 from torchvision import models
 from sklearn.random_projection import SparseRandomProjection
-from sklearn.neighbors import NearestNeighbors
 from scipy.ndimage import gaussian_filter
 from tqdm import tqdm
 import pickle
@@ -22,15 +21,13 @@ class PatchCore:
     def __init__(self, backbone=PATCHCORE_BACKBONE, layers=PATCHCORE_LAYERS,
                  coreset_ratio=CORESET_RATIO):
        
-        self.device = torch.device("cpu")  # CPU 모드
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.layers = layers
         self.coreset_ratio = coreset_ratio
+        
+        # 메모리 뱅크 (학습 후 채워짐)
         self.memory_bank = None
-        self.knn = None
-
-        # ========================================
-        # 1. 사전학습된 백본 네트워크 로드
-        # ========================================
+  
         
         self.backbone = getattr(models, backbone)(weights='IMAGENET1K_V1')
         self.backbone.to(self.device)
@@ -103,20 +100,16 @@ class PatchCore:
         n_select = max(1, int(all_patches.shape[0] * self.coreset_ratio))
         
         if n_select < all_patches.shape[0]:
-      
             self.memory_bank = self._greedy_coreset(all_patches, n_select)
         else:
             self.memory_bank = all_patches
 
-        # k-NN 탐색 모델 사전 생성 (추론 시 재사용)
-        self.knn = NearestNeighbors(n_neighbors=1, algorithm='brute', n_jobs=-1)
-        self.knn.fit(self.memory_bank)
-        
+        # KNN 추론용 GPU 텐서 캐싱
+        self._build_memory_bank_tensor()
+
     
     def _greedy_coreset(self, features, n_select):
 
-        
-    
         if features.shape[1] > 128:
             projector = SparseRandomProjection(n_components=128, random_state=42)
             reduced = projector.fit_transform(features)
@@ -125,33 +118,59 @@ class PatchCore:
         
         n_total = reduced.shape[0]
         selected_indices = []
-
-        np.random.seed(42)
+        
+        # --- [최적화 적용] GPU 가속을 활용해 알고리즘 로직 변경 없이 무식한 연산 속도만 극한으로 올립니다 ---
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        # 연산을 위해 GPU로 데이터 이동
+        # GPU 메모리(12GB) 내에 충분히 들어가는 크기입니다 (약 1~2GB 내외)
+        reduced_tensor = torch.from_numpy(reduced).float().to(device)
+        min_distances = torch.full((n_total,), float('inf'), device=device)
+        
         first_idx = np.random.randint(n_total)
         selected_indices.append(first_idx)
         
-
-        min_distances = np.full(n_total, np.inf)
-        
-        for i in tqdm(range(1, n_select), desc="   Coreset 선택", leave=False):
-        
-            last_selected = reduced[selected_indices[-1]]
-            distances = np.sum((reduced - last_selected) ** 2, axis=1)
-            min_distances = np.minimum(min_distances, distances)
+        for i in tqdm(range(1, n_select), desc="   Coreset 선택 (GPU 가속)", leave=False):
+            # 가장 최근 선택된 특징점 (Vector)
+            last_selected = reduced_tensor[selected_indices[-1]]
             
-           
-            next_idx = np.argmax(min_distances)
+            # 브로드캐스팅을 통해 전체 행렬과 벡터 간의 유클리디안 거리를 병렬 계산
+            distances = torch.norm(reduced_tensor - last_selected, dim=1)
+            
+            # 기존 최소 거리와 현재 거리 비교 (원래 Numpy의 np.minimum 역할)
+            min_distances = torch.minimum(min_distances, distances)
+            
+            # 가장 멀리 떨어진 특징의 Index 획득
+            next_idx = torch.argmax(min_distances).item()
             selected_indices.append(next_idx)
+        
+        # 메모리 정리 (OOM 방지)
+        del reduced_tensor
+        del min_distances
+        torch.cuda.empty_cache()
         
         return features[selected_indices]
     
-    def _knn_search(self, patches):
+    def _build_memory_bank_tensor(self):
+        self.memory_bank_tensor = torch.from_numpy(self.memory_bank).float().to(self.device)
+        self.memory_bank_sq = (self.memory_bank_tensor ** 2).sum(dim=1, keepdim=True).T  # [1, M]
 
-        patches_sq = np.sum(patches ** 2, axis=1, keepdims=True)
-        memory_sq  = np.sum(self.memory_bank ** 2, axis=1, keepdims=True).T
-        cross      = patches @ self.memory_bank.T
-        dist_sq    = np.maximum(patches_sq + memory_sq - 2 * cross, 0)
-        return np.sqrt(dist_sq).min(axis=1)  # [N]
+    def _knn_search(self, patches_tensor):
+        # patches_tensor: [N, C] GPU 텐서
+        # 메모리 뱅크가 크므로 청크 단위로 나눠 OOM 방지
+        chunk_size = 512
+        all_distances = []
+
+        with torch.no_grad():
+            for i in range(0, patches_tensor.shape[0], chunk_size):
+                chunk = patches_tensor[i:i + chunk_size]           # [chunk, C]
+                chunk_sq = (chunk ** 2).sum(dim=1, keepdim=True)   # [chunk, 1]
+                cross = chunk @ self.memory_bank_tensor.T           # [chunk, M]
+                dist_sq = torch.clamp(chunk_sq + self.memory_bank_sq - 2 * cross, min=0)
+                distances = dist_sq.sqrt().min(dim=1).values        # [chunk]
+                all_distances.append(distances)
+
+        return torch.cat(all_distances).cpu().numpy()  # [N]
 
     def predict(self, image_tensor):
 
@@ -164,18 +183,13 @@ class PatchCore:
 
         # 패치 특징 추출
         patches, (H, W) = self._extract_features(image_tensor)
-        patches = patches.cpu().numpy().reshape(-1, patches.shape[-1])  # [H*W, C]
+        patches_tensor = patches.reshape(-1, patches.shape[-1])  # [H*W, C], GPU 유지
 
-        if self.knn is None:
-            self.knn = NearestNeighbors(n_neighbors=1, algorithm='brute', n_jobs=-1)
-            self.knn.fit(self.memory_bank)
-
-        distances, _ = self.knn.kneighbors(patches)
-        distances = distances.flatten()
+        distances = self._knn_search(patches_tensor)  # [H*W], numpy 반환
         anomaly_map = distances.reshape(H, W)
 
         # 가우시안 스무딩
-        anomaly_map = gaussian_filter(anomaly_map, sigma=2)
+        anomaly_map = gaussian_filter(anomaly_map, sigma=1)
 
        
         if anomaly_map.max() > anomaly_map.min():
@@ -211,6 +225,5 @@ class PatchCore:
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
 
-        # k-NN 탐색 모델 즉시 생성
-        self.knn = NearestNeighbors(n_neighbors=1, algorithm='brute', n_jobs=-1)
-        self.knn.fit(self.memory_bank)
+        # KNN 추론용 GPU 텐서 재구성
+        self._build_memory_bank_tensor()

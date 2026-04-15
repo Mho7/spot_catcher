@@ -147,8 +147,8 @@ def get_dataloader(image_dir, batch_size=8, shuffle=True, transform=None,
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        num_workers=0,  # Windows에서는 0으로 설정 (멀티프로세싱 이슈 방지)
-        pin_memory=False  # CPU 모드에서는 False
+        num_workers=4,
+        pin_memory=True
     )
     return loader
 

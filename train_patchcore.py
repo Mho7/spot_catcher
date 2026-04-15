@@ -23,7 +23,7 @@ def main():
     # ========================================
     print("\n데이터 로드 중...")
     train_loader = get_dataloader(TRAIN_DIR, batch_size=4, shuffle=True,
-                                  augment=True, repeat=20)
+                                  augment=True, repeat=5)
 
     if len(train_loader.dataset) == 0:
         print("학습 데이터가 없습니다!")
