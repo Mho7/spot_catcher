@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torchvision import models
+from torchvision.models.feature_extraction import create_feature_extractor
 from sklearn.random_projection import SparseRandomProjection
 from scipy.ndimage import gaussian_filter
 from tqdm import tqdm
@@ -29,46 +30,35 @@ class PatchCore:
         self.memory_bank = None
   
         
-        self.backbone = getattr(models, backbone)(weights='IMAGENET1K_V1')
+        full_model = getattr(models, backbone)(weights='IMAGENET1K_V1')
+        # layer3/layer4/fc 등 미사용 구간을 그래프에서 제외해 VRAM/연산 절감
+        return_nodes = {name: name for name in self.layers}
+        self.backbone = create_feature_extractor(full_model, return_nodes=return_nodes)
         self.backbone.to(self.device)
         self.backbone.eval()  # 평가 모드 (학습하지 않음)
-        
 
-        self.features = {}
-        
-        def get_hook(name):
-            def hook(module, input, output):
-                self.features[name] = output.detach()
-            return hook
-        
-        for layer_name in self.layers:
-            layer = dict(self.backbone.named_children())[layer_name]
-            layer.register_forward_hook(get_hook(layer_name))
-        
     
     #  aggregation 방식을 채택함
     def _extract_features(self, images):
 
         with torch.no_grad():
+            feats = self.backbone(images.to(self.device))  # {layer_name: tensor}
 
-            _ = self.backbone(images.to(self.device))
-        
-        
         all_features = []
         target_size = None
-        
+
         for layer_name in self.layers:
-            feat = self.features[layer_name]  
-            
+            feat = feats[layer_name]
+
             if target_size is None:
                 target_size = feat.shape[2:]  # 첫 번째 레이어 크기 기준
-            
+
             # 다른 레이어 크기를 맞춤 (interpolate)
             if feat.shape[2:] != target_size:
                 feat = F.interpolate(
                     feat, size=target_size, mode='bilinear', align_corners=False
                 )
-            
+
             all_features.append(feat)
         
         
