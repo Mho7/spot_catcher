@@ -12,24 +12,25 @@ FastAPI 백엔드 서버 (데스크톱/GPU 서버에서 실행)
     DELETE /defects/{id}            - 결함 삭제
 """
 import os
+import io
 import uuid
 import time
+import base64
 import numpy as np
 from PIL import Image
 import cv2
-import argparse
 
 from fastapi import FastAPI, Form, File, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 import uvicorn
 
-from config import IMAGE_SIZE, STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT
+from config import IMAGE_SIZE, STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT, ANOMALY_THRESHOLD
 from models.patchcore import PatchCore
 from utils.dataset import get_default_transform
-from utils.visualization import create_heatmap_overlay, save_single_overlay
+from utils.visualization import make_single_overlay, save_single_overlay
 from database import save_defect, get_defects, get_defect_stats, delete_defect
 
 # ========================================
@@ -47,6 +48,12 @@ app.add_middleware(
 
 os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+def _to_data_uri(image_np: np.ndarray) -> str:
+    buf = io.BytesIO()
+    Image.fromarray(image_np).save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 @app.get("/")
@@ -100,36 +107,42 @@ async def detect(file: UploadFile = File(...), save_to_db: str = Form("false")):
 
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(frame_rgb)
-        original_np = np.array(pil_image.resize(IMAGE_SIZE))
+        original_np = np.array(pil_image.resize(IMAGE_SIZE[::-1]))  # PIL은 (W,H), IMAGE_SIZE는 (H,W)
 
         tensor = pc_transform(pil_image)
         start = time.time()
         score, anomaly_map = patchcore_model.predict(tensor)
         infer_time = time.time() - start
 
-        rid = str(uuid.uuid4())[:8]
-        Image.fromarray(original_np).save(os.path.join(STATIC_DIR, f"cam_{rid}.png"))
-        save_single_overlay(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
+        should_save = save_to_db.lower() == "true"
 
-        original_url = f"/static/cam_{rid}.png"
-        overlay_url  = f"/static/cam_ov_{rid}.png"
+        if should_save:
+            rid = str(uuid.uuid4())[:8]
+            Image.fromarray(original_np).save(os.path.join(STATIC_DIR, f"cam_{rid}.png"))
+            save_single_overlay(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
+            original_url = f"/static/cam_{rid}.png"
+            overlay_url = f"/static/cam_ov_{rid}.png"
+        else:
+            overlay_np = make_single_overlay(original_np, anomaly_map)
+            original_url = _to_data_uri(original_np)
+            overlay_url = _to_data_uri(overlay_np)
 
         saved = False
-        if save_to_db.lower() == "true":
+        if should_save:
             try:
                 saved = save_defect(
                     source="client_camera", model_type="patchcore", anomaly_score=float(score),
                     original_url=original_url, overlay_url=overlay_url,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"DB 저장 실패: {e}")
 
         return JSONResponse(content={
             "success": True,
             "model": "patchcore",
             "anomaly_score": round(float(score), 4),
-            "is_anomaly": score > 0.5,
-            "verdict": "결함 탐지" if score > 0.5 else "정상",
+            "is_anomaly": score > ANOMALY_THRESHOLD,
+            "verdict": "결함 탐지" if score > ANOMALY_THRESHOLD else "정상",
             "inference_time": round(infer_time, 3),
             "original_url": original_url,
             "overlay_url": overlay_url,
