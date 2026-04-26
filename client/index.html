@@ -918,11 +918,11 @@
 
                     <div className="img-compare">
                         <div className="img-box">
-                            <img src={`${BASE}${result.original_url}`} alt="원본" />
+                            <img src={result.original_url.startsWith("data:") ? result.original_url : `${BASE}${result.original_url}`} alt="원본" />
                             <div className="img-label">원본 사진</div>
                         </div>
                         <div className="img-box">
-                            <img src={`${BASE}${result.overlay_url}`} alt="불량 위치" />
+                            <img src={result.overlay_url.startsWith("data:") ? result.overlay_url : `${BASE}${result.overlay_url}`} alt="불량 위치" />
                             <div className="img-label">불량 위치</div>
                         </div>
                     </div>
