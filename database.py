@@ -35,15 +35,15 @@ def init_db():
 
 def save_defect(source: str, model_type: str, anomaly_score: float,
                 original_url: str = None, overlay_url: str = None,
-                filename: str = None):
+                filename: str = None, force: bool = False):
     """
-    결함률 30% 이상인 경우 DB에 저장
+    결함률 30% 이상인 경우 DB에 저장 (force=True 면 임계값 무시)
 
     Returns:
         True  — 저장됨
         False — 임계값 미달로 저장 안 함
     """
-    if anomaly_score < DEFECT_DB_THRESHOLD:
+    if not force and anomaly_score < DEFECT_DB_THRESHOLD:
         return False
 
     conn = sqlite3.connect(DB_PATH)

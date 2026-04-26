@@ -170,6 +170,79 @@
     }
     .rescan-btn:hover { transform: translateY(-2px); }
 
+    /* ── 결과 확인 화면 (촬영 결과 + 저장 여부) ── */
+    .result-confirm-layout {
+      display: flex; gap: 24px; align-items: stretch;
+      margin-bottom: 22px;
+    }
+    .result-photo-card {
+      flex: 1;
+      background: #fff;
+      border-radius: 28px;
+      box-shadow: 0 18px 35px rgba(0,0,0,0.13);
+      aspect-ratio: 4/3;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .result-photo-card img {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 28px; display: block;
+    }
+    .result-photo-placeholder {
+      width: 72px; height: 72px; opacity: 0.35;
+    }
+    .result-confirm-actions {
+      width: 200px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 14px;
+    }
+    .confirm-label {
+      font-size: 14px; font-weight: 700; color: #1f1f1f;
+      letter-spacing: 0.3px; margin-bottom: 6px;
+    }
+    .confirm-btn {
+      width: 100%;
+      border: none; cursor: pointer;
+      padding: 14px 28px; border-radius: 999px;
+      font-size: 16px; font-weight: 700;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+      transition: 0.2s;
+    }
+    .confirm-btn:hover:not(:disabled) { transform: translateY(-2px); }
+    .confirm-btn:disabled { cursor: default; opacity: 0.6; box-shadow: none; }
+    .confirm-btn.select { background: #fff; color: #1f1f1f; }
+    .confirm-btn.rescan { background: #111; color: #fff; }
+    .result-stat-row {
+      display: flex; gap: 20px; justify-content: center;
+      flex-wrap: wrap;
+    }
+    .result-stat-card {
+      flex: 1; min-width: 160px; max-width: 220px;
+      background: rgba(255,255,255,0.85);
+      border-radius: 28px;
+      padding: 18px 24px;
+      text-align: center;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    }
+    .result-stat-label {
+      font-size: 13px; font-weight: 600; color: #555;
+      margin-bottom: 6px; letter-spacing: 0.3px;
+    }
+    .result-stat-value {
+      font-size: 30px; font-weight: 800; color: #1f1f1f;
+      line-height: 1.1;
+    }
+    .result-stat-value .unit {
+      font-size: 16px; font-weight: 700; color: #555; margin-left: 2px;
+    }
+    .result-stat-value.danger { color: #c0292a; }
+    .result-stat-value.safe   { color: #1e7a36; }
+
+    @media (max-width: 720px) {
+      .result-confirm-layout { flex-direction: column; }
+      .result-confirm-actions { width: 100%; flex-direction: row; }
+    }
+
     /* ── 저장 목록 ── */
     .filter-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 18px; }
     .filter-group label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; font-weight: 600; }
@@ -396,7 +469,7 @@
   }
 
   /* ── 상단 바 ── */
-  function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb, setStorageSearch }) {
+  function Topbar({ screen, setScreen, health, failed, setStorageSearch }) {
     const subtitles = { home: "", result: "", storage: "" };
     return (
       <div className="topbar">
@@ -415,13 +488,6 @@
             </button>
           ) : (
             <>
-              <div className="save-toggle-box">
-                <span>test</span>
-                <label className="switch">
-                  <input type="checkbox" checked={saveDb} onChange={e => setSaveDb(e.target.checked)} />
-                  <span className="slider" />
-                </label>
-              </div>
               {screen !== "home" && (
                 <button className="ghost-btn" onClick={() => setScreen("home")}>메인으로</button>
               )}
@@ -445,7 +511,7 @@
   }
 
   /* ── 홈 화면 ── */
-  function HomeScreen({ setScreen, setLastResult, health, failed, saveDb }) {
+  function HomeScreen({ setScreen, setLastResult, health, failed }) {
     const [mode, setMode]       = React.useState("camera"); // "camera" | "upload"
     const [loading, setLoading] = React.useState(false);
     const [error, setError]     = React.useState(null);
@@ -460,7 +526,7 @@
       setLoading(true); setError(null);
       try {
         const fd = new FormData();
-        fd.append("save_to_db", String(saveDb));
+        fd.append("save_to_db", "false");
         const data = await api.post("/camera/capture", fd);
         if (data.success) {
           setLastResult(data);
@@ -480,7 +546,7 @@
       try {
         const fd = new FormData();
         fd.append("file", uploadFile);
-        fd.append("save_to_db", String(saveDb));
+        fd.append("save_to_db", "false");
         const data = await api.post("/upload/analyze", fd);
         if (data.success) {
           setLastResult(data);
@@ -547,62 +613,95 @@
     );
   }
 
-  /* ── 결과 화면 ── */
+  /* ── 결과 확인 화면 (촬영 결과 + 저장 여부 선택) ── */
   function ResultScreen({ result, setScreen }) {
+    const [saving, setSaving] = React.useState(false);
+    const [savedFlag, setSavedFlag] = React.useState(false);
+    const [error, setError] = React.useState(null);
+
     if (!result) return (
       <div className="panel" style={{ textAlign: "center", padding: 48, color: "#888" }}>
         결과가 없어요. 메인으로 돌아가서 스캔을 기다려 주세요.
       </div>
     );
 
-    return (
-      <div className="panel">
-        <div className="section-title">검사 결과</div>
+    const defectRate = Math.round((result.anomaly_score || 0) * 100);
+    const verdictText = result.is_anomaly ? "결함" : "정상";
 
-        <div className="img-compare">
-          <div className="img-box">
-            <img src={`${BASE}${result.original_url}`} alt="원본" />
-            <div className="img-label">원본 사진</div>
+    const handleSelect = async () => {
+      if (saving || savedFlag) return;
+      setSaving(true); setError(null);
+      try {
+        const fd = new FormData();
+        fd.append("source", "camera");
+        fd.append("anomaly_score", String(result.anomaly_score));
+        if (result.original_url) fd.append("original_url", result.original_url);
+        if (result.overlay_url)  fd.append("overlay_url",  result.overlay_url);
+        const data = await api.post("/defects/save", fd);
+        if (data.success) {
+          setSavedFlag(true);
+          setTimeout(() => setScreen("home"), 600);
+        } else {
+          setError(data.error || "저장에 실패했어요.");
+        }
+      } catch {
+        setError("서버에 연결하지 못했어요.");
+      }
+      setSaving(false);
+    };
+
+    return (
+      <div>
+        <div className="result-confirm-layout">
+          <div className="result-photo-card">
+            {result.original_url ? (
+              <img src={`${BASE}${result.original_url}`} alt="촬영 사진" />
+            ) : (
+              <svg className="result-photo-placeholder" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            )}
           </div>
-          <div className="img-box">
-            <img src={`${BASE}${result.overlay_url}`} alt="불량 위치" />
-            <div className="img-label">불량 위치</div>
+          <div className="result-confirm-actions">
+            <div className="confirm-label">DB 저장 여부</div>
+            <button
+              className="confirm-btn select"
+              onClick={handleSelect}
+              disabled={saving || savedFlag}
+            >
+              {savedFlag ? "저장됨" : (saving ? "저장 중..." : "선택")}
+            </button>
+            <button
+              className="confirm-btn rescan"
+              onClick={() => setScreen("home")}
+              disabled={saving}
+            >
+              다시 스캔
+            </button>
+            {error && <p className="error-msg" style={{ marginTop: 4 }}>{error}</p>}
           </div>
         </div>
 
-        <div className="result-metrics">
-          <div className="metric-card">
-            <div className="metric-label">판정</div>
-            <div className="metric-value" style={{ fontSize: 20, color: result.is_anomaly ? "#c0292a" : "#1e7a36" }}>
-              {result.verdict}
+        <div className="result-stat-row">
+          <div className="result-stat-card">
+            <div className="result-stat-label">불량률</div>
+            <div className={`result-stat-value ${result.is_anomaly ? "danger" : ""}`}>
+              {defectRate}<span className="unit">%</span>
             </div>
           </div>
-          <div className="metric-card">
-            <div className="metric-label">분석 시간</div>
-            <div className="metric-value">{result.inference_time}s</div>
+          <div className="result-stat-card">
+            <div className="result-stat-label">판정</div>
+            <div className={`result-stat-value ${result.is_anomaly ? "danger" : "safe"}`}>
+              {verdictText}
+            </div>
           </div>
-        </div>
-
-        <div className="info-list" style={{ marginBottom: 24 }}>
-          <div className="info-row">
-            <span>판정</span>
-            <span className={`pill ${result.is_anomaly ? "danger" : "safe"}`} style={{ margin: 0 }}>
-              {result.is_anomaly ? "DEFECT DETECTED" : "NORMAL"}
-            </span>
+          <div className="result-stat-card">
+            <div className="result-stat-label">추론 시간</div>
+            <div className="result-stat-value">
+              {result.inference_time}<span className="unit">s</span>
+            </div>
           </div>
-          <div className="info-row"><span>모델</span><strong>PatchCore</strong></div>
-          <div className="info-row">
-            <span>DB 저장</span>
-            <strong style={{ color: result.saved_to_db ? "#1e7a36" : "#999" }}>
-              {result.saved_to_db ? "저장 완료" : "저장 안함"}
-            </strong>
-          </div>
-        </div>
-
-        <div style={{ textAlign: "center" }}>
-          <button className="rescan-btn" onClick={() => setScreen("home")}>
-            다시 스캔하기
-          </button>
         </div>
       </div>
     );
@@ -726,7 +825,6 @@
   function App() {
     const [screen, setScreen]                   = React.useState("home");
     const [lastResult, setLastResult]           = React.useState(null);
-    const [saveDb, setSaveDb]                   = React.useState(false);
     const [storageSelected, setStorageSelected] = React.useState(null);
     const [storageSearch, setStorageSearch]     = React.useState(false);
     const { health, failed } = useHealth();
@@ -736,10 +834,9 @@
         <Topbar
           screen={screen} setScreen={setScreen}
           health={health} failed={failed}
-          saveDb={saveDb} setSaveDb={setSaveDb}
           setStorageSearch={setStorageSearch}
         />
-        {screen === "home"   && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} saveDb={saveDb} />}
+        {screen === "home"   && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} />}
         {screen === "result" && <ResultScreen result={lastResult} setScreen={setScreen} />}
         {screen === "storage" && (
           storageSearch ? (

@@ -242,6 +242,26 @@ async def defects_list(limit: int = 100, min_score: float = 0.3):
     return {"count": len(data), "defects": data}
 
 
+@app.post("/defects/save")
+async def defect_save(
+    source: str = Form("camera"),
+    anomaly_score: float = Form(...),
+    original_url: str = Form(None),
+    overlay_url: str = Form(None),
+    filename: str = Form(None),
+):
+    """이미 캡처/분석된 결과를 사용자가 명시적으로 저장 (임계값 무시)"""
+    try:
+        saved = save_defect(
+            source=source, model_type="patchcore", anomaly_score=anomaly_score,
+            original_url=original_url, overlay_url=overlay_url,
+            filename=filename, force=True,
+        )
+        return {"success": True, "saved": saved}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.delete("/defects/{defect_id}")
 async def defect_delete(defect_id: int):
     deleted = delete_defect(defect_id)
