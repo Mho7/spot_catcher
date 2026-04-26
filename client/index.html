@@ -1001,10 +1001,16 @@
                         {defects && defects.defects.map((d, i) => {
                             const score = typeof d.anomaly_score === "number" ? d.anomaly_score : parseFloat(d.anomaly_score);
                             const defectRate = Math.round(score * 100);
-                            const dateStr = d.created_at ? d.created_at.slice(0, 10).replace(/-/g, ".") : "-";
+                            const dateStr = d.timestamp ? d.timestamp.slice(0, 10).replace(/-/g, ".") : "-";
+                            const thumbSrc = d.overlay_url ? `${BASE}${d.overlay_url}` : null;
                             return (
                                 <div key={i} className="storage-item" onClick={() => d.overlay_url && onSelect(d)}>
-                                    <button className="storage-item-thumb">사진</button>
+                                    <div className="storage-item-thumb">
+                                        {thumbSrc
+                                            ? <img src={thumbSrc} alt="썸네일" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} />
+                                            : <span style={{ fontSize: 11, color: "#aaa" }}>없음</span>
+                                        }
+                                    </div>
                                     <div className="storage-item-info">
                                         <div className="storage-item-date">{dateStr}</div>
                                         <div className="storage-item-score">결함율 {defectRate}</div>
