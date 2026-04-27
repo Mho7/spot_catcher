@@ -181,7 +181,6 @@ class PatchCore:
         # 가우시안 스무딩
         anomaly_map = gaussian_filter(anomaly_map, sigma=1)
 
-       
         if anomaly_map.max() > anomaly_map.min():
             anomaly_map = (anomaly_map - anomaly_map.min()) / (anomaly_map.max() - anomaly_map.min())
 
