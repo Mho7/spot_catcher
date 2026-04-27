@@ -9,7 +9,7 @@ import pickle
 
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import PATCHCORE_BACKBONE, PATCHCORE_LAYERS, SAVE_DIR
+from config import PATCHCORE_BACKBONE, PATCHCORE_LAYERS, SAVE_DIR, OVERLAY_THRESHOLD
 
 
 class PatchCore:
@@ -51,6 +51,24 @@ class PatchCore:
         self.memory_bank_tensor = torch.from_numpy(self.memory_bank).float().to(self.device)
         self.memory_bank_sq = (self.memory_bank_tensor ** 2).sum(dim=1, keepdim=True).T  # [1, M]
 
+    def _calibrate(self):
+        """memory bank 내부 NN 거리 분포를 계산하여 정규화 기준값 확보"""
+        rng = np.random.RandomState(42)
+        n = self.memory_bank.shape[0]
+        sample_size = min(500, n)
+        indices = rng.choice(n, sample_size, replace=False)
+        sample = torch.from_numpy(self.memory_bank[indices]).float().to(self.device)
+
+        # 각 샘플의 2nd-NN 거리 (자기 자신 제외)
+        with torch.no_grad():
+            dists = torch.cdist(sample, self.memory_bank_tensor)
+            nn2 = dists.topk(2, largest=False, dim=1).values[:, 1]
+
+        nn_dists = nn2.cpu().numpy()
+        self.dist_mean = float(np.mean(nn_dists))
+        self.dist_ceil = float(np.percentile(nn_dists, 99))
+        print(f"  캘리브레이션 완료: dist_mean={self.dist_mean:.4f}, dist_ceil(p99)={self.dist_ceil:.4f}")
+
     def _knn_search(self, patches_tensor):
         chunk_size = 512
         all_distances = []
@@ -78,8 +96,10 @@ class PatchCore:
         anomaly_map = distances.reshape(H, W)
         anomaly_map = gaussian_filter(anomaly_map, sigma=1)
 
-        if anomaly_map.max() > anomaly_map.min():
-            anomaly_map = (anomaly_map - anomaly_map.min()) / (anomaly_map.max() - anomaly_map.min())
+        scale = self.dist_ceil - self.dist_mean
+        if scale > 0:
+            anomaly_map = (anomaly_map - self.dist_mean) / scale
+        anomaly_map = np.clip(anomaly_map, 0, None)
 
         top_k = min(5, len(distances))
         anomaly_score = float(np.sort(distances)[-top_k:].mean())
@@ -96,3 +116,4 @@ class PatchCore:
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
         self._build_memory_bank_tensor()
+        self._calibrate()
