@@ -823,7 +823,7 @@
             const streamRef = React.useRef(null);
 
             React.useEffect(() => {
-                navigator.mediaDevices.getUserMedia({ video: true })
+                navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } })
                     .then(stream => { streamRef.current = stream; setCamReady(true); })
                     .catch(() => setCamReady(false));
                 return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); };
