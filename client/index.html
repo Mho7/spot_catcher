@@ -714,6 +714,377 @@
             font-weight: 700;
         }
 
+        .storage-item.selected {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+            padding: 4px 6px;
+            margin: 0 -6px;
+        }
+
+        .storage-item-delete {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            padding: 2px 6px;
+            margin-left: auto;
+        }
+
+        .storage-item-delete:hover {
+            color: #c0292a;
+        }
+
+        /* 좌측 디테일 카드 */
+        .storage-detail {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+            width: 100%;
+            padding: 24px 28px;
+            box-sizing: border-box;
+        }
+
+        .storage-detail-image {
+            flex: 1;
+            max-width: 60%;
+            aspect-ratio: 16 / 9;
+            background: transparent;
+            border-radius: 18px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .storage-detail-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .storage-detail-info {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            text-align: right;
+            min-width: 170px;
+        }
+
+        .storage-detail-date {
+            font-size: 18px;
+            color: #444;
+        }
+
+        .storage-detail-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: baseline;
+            gap: 14px;
+        }
+
+        .storage-detail-label {
+            font-size: 16px;
+            color: #444;
+        }
+
+        .storage-detail-value {
+            font-size: 30px;
+            font-weight: 700;
+            color: #c0292a;
+        }
+
+        .storage-detail-value.small {
+            font-size: 18px;
+        }
+
+        /* 판정(결과) 화면 */
+        .result-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .result-top {
+            display: flex;
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .result-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .result-image-card {
+            background: transparent;
+            border-radius: 28px;
+            aspect-ratio: 16 / 9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .result-image-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .result-image-empty {
+            color: #ccc;
+            font-size: 64px;
+        }
+
+        .result-pills {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            padding-right: 190px;  /* result-side(170px) + gap(20px) 보정해서 이미지 가운데에 정렬 */
+        }
+
+        .result-pill {
+            background: rgba(255, 255, 255, 0.94);
+            border-radius: 16px;
+            padding: 12px 26px;
+            text-align: center;
+            min-width: 130px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10);
+        }
+
+        .result-pill-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .result-pill-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .result-pill-value.danger { color: #c0292a; }
+        .result-pill-value.safe   { color: #1e7a36; }
+
+        .result-side {
+            width: 170px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            justify-content: center;
+        }
+
+        .result-side-label {
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+        }
+
+        .result-side-btn {
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: 0.15s;
+        }
+
+        .result-side-btn.white {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10);
+        }
+
+        .result-side-btn.white.active {
+            background: #e9e9ec;
+        }
+
+        .result-side-btn.white:hover { background: #fff; }
+
+        .result-side-btn.dark {
+            background: #1a1a1a;
+            color: #fff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+        }
+
+        .result-side-btn.dark:hover { background: #000; }
+
+        /* 검색 뷰 (storage 자리에 펼쳐짐) */
+        .search-view {
+            background: #f1f3f6;
+            border-radius: 24px;
+            padding: 22px 24px;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+            animation: search-unfold 0.2s ease-out;
+        }
+
+        @keyframes search-unfold {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .search-view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .search-view-title {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .search-view-close {
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            color: #555;
+            line-height: 1;
+        }
+
+        .search-filters {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .search-filter-row {
+            background: #fff;
+            border-radius: 999px;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .search-filter-label {
+            font-size: 12px;
+            color: #555;
+            min-width: 96px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .search-filter-inputs {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .search-filter-row input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 13px;
+            padding: 4px 6px;
+            min-width: 0;
+        }
+
+        .search-filter-row input[type="date"] {
+            width: 130px;
+        }
+
+        .search-filter-row input[type="number"] {
+            width: 80px;
+        }
+
+        .search-filter-row .tilde {
+            color: #aaa;
+            margin: 0 4px;
+        }
+
+        .search-submit {
+            width: 100%;
+            background: #1a1a1a;
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 14px;
+        }
+
+        .search-submit:hover { background: #000; }
+        .search-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .search-results {
+            background: #fff;
+            border-radius: 18px;
+            padding: 8px 14px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .search-results-count {
+            font-size: 12px;
+            color: #777;
+            padding: 6px 4px;
+        }
+
+        .search-result-item {
+            display: grid;
+            grid-template-columns: 56px 60px 1fr 88px;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 4px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-item:hover { background: #fafafa; }
+
+        .search-result-thumb {
+            background: #ddd;
+            border-radius: 8px;
+            text-align: center;
+            padding: 10px 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #444;
+        }
+
+        .search-result-label {
+            font-size: 13px;
+            color: #555;
+        }
+
+        .search-result-rate {
+            font-size: 22px;
+            font-weight: 700;
+            color: #c0292a;
+        }
+
+        .search-result-date {
+            font-size: 12px;
+            color: #555;
+            text-align: right;
+        }
+
+        .search-empty {
+            padding: 24px 8px;
+            text-align: center;
+            color: #888;
+            font-size: 13px;
+        }
+
         @media (max-width: 640px) {
             .app {
                 padding: 16px;
@@ -793,7 +1164,13 @@
                                     </label>
                                 </div>
                                 {screen !== "home" && (
-                                    <button className="ghost-btn" onClick={() => setScreen("home")}>메인으로</button>
+                                    <button className="nav-btn" onClick={() => setScreen("home")} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+                                            <path d="M9 21V12h6v9" />
+                                        </svg>
+                                        Home
+                                    </button>
                                 )}
                                 <button className="nav-btn" onClick={() => setScreen("storage")}>≡ storage</button>
                             </>
@@ -912,61 +1289,188 @@
                 </div>
             );
 
-            return (
-                <div className="panel">
-                    <div className="section-title">검사 결과</div>
+            const [savedNow, setSavedNow] = React.useState(false);
+            const [saving, setSaving] = React.useState(false);
+            const isSaved = result.saved_to_db || savedNow;
 
-                    <div className="img-compare">
-                        <div className="img-box">
-                            <img src={result.original_url.startsWith("data:") ? result.original_url : `${BASE}${result.original_url}`} alt="원본" />
-                            <div className="img-label">원본 사진</div>
+            const handleSave = async () => {
+                if (isSaved || saving) return;
+                setSaving(true);
+                try {
+                    const res = await fetch(`${BASE}/defects/save_current`, {
+                        method: "POST",
+                        headers: { ...NGROK_HEADER, "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            anomaly_score: result.anomaly_score,
+                            inference_time: result.inference_time,
+                            original_url: result.original_url,
+                            overlay_url: result.overlay_url,
+                        }),
+                    }).then(r => r.json());
+                    if (res && res.saved) {
+                        setSavedNow(true);
+                    } else {
+                        alert("저장에 실패했어요.");
+                    }
+                } catch {
+                    alert("저장에 실패했어요.");
+                }
+                setSaving(false);
+            };
+
+            const defectRate = Math.round((result.anomaly_score || 0) * 100);
+            const imgSrc = result.overlay_url
+                ? (result.overlay_url.startsWith("data:") ? result.overlay_url : `${BASE}${result.overlay_url}`)
+                : null;
+            const inferStr = result.inference_time != null ? `${result.inference_time}초` : "-";
+
+            return (
+                <div className="result-layout">
+                    <div className="result-top">
+                        <div className="result-main">
+                            <div className="result-image-card">
+                                {imgSrc ? (
+                                    <img src={imgSrc} alt="검사 결과" />
+                                ) : (
+                                    <span className="result-image-empty">📷</span>
+                                )}
+                            </div>
                         </div>
-                        <div className="img-box">
-                            <img src={result.overlay_url.startsWith("data:") ? result.overlay_url : `${BASE}${result.overlay_url}`} alt="불량 위치" />
-                            <div className="img-label">불량 위치</div>
+                        <div className="result-side">
+                            <div className="result-side-label">DB 저장 여부</div>
+                            <button
+                                className={"result-side-btn white" + (isSaved ? " active" : "")}
+                                onClick={handleSave}
+                                disabled={isSaved || saving}
+                                title={isSaved ? "이미 저장됨" : "현재 결과를 저장소에 저장"}
+                            >{saving ? "저장 중..." : (isSaved ? "저장됨" : "선택")}</button>
+                            <button
+                                className="result-side-btn dark"
+                                onClick={() => setScreen("home")}
+                            >다시 스캔</button>
                         </div>
                     </div>
-
-                    <div className="result-metrics">
-                        <div className="metric-card">
-                            <div className="metric-label">판정</div>
-                            <div className="metric-value" style={{ fontSize: 20, color: result.is_anomaly ? "#c0292a" : "#1e7a36" }}>
+                    <div className="result-pills">
+                        <div className="result-pill">
+                            <div className="result-pill-label">불량률</div>
+                            <div className={"result-pill-value " + (result.is_anomaly ? "danger" : "safe")}>
+                                {defectRate}
+                            </div>
+                        </div>
+                        <div className="result-pill">
+                            <div className="result-pill-label">판정</div>
+                            <div className={"result-pill-value " + (result.is_anomaly ? "danger" : "safe")}>
                                 {result.verdict}
                             </div>
                         </div>
-                        <div className="metric-card">
-                            <div className="metric-label">분석 시간</div>
-                            <div className="metric-value">{result.inference_time}s</div>
+                        <div className="result-pill">
+                            <div className="result-pill-label">추론 시간</div>
+                            <div className="result-pill-value">{inferStr}</div>
                         </div>
-                    </div>
-
-                    <div className="info-list" style={{ marginBottom: 24 }}>
-                        <div className="info-row">
-                            <span>판정</span>
-                            <span className={`pill ${result.is_anomaly ? "danger" : "safe"}`} style={{ margin: 0 }}>
-                                {result.is_anomaly ? "DEFECT DETECTED" : "NORMAL"}
-                            </span>
-                        </div>
-                        <div className="info-row"><span>모델</span><strong>PatchCore</strong></div>
-                        <div className="info-row">
-                            <span>DB 저장</span>
-                            <strong style={{ color: result.saved_to_db ? "#1e7a36" : "#999" }}>
-                                {result.saved_to_db ? "저장 완료" : "저장 안함"}
-                            </strong>
-                        </div>
-                    </div>
-
-                    <div style={{ textAlign: "center" }}>
-                        <button className="rescan-btn" onClick={() => setScreen("home")}>
-                            다시 스캔하기
-                        </button>
                     </div>
                 </div>
             );
         }
 
         /* ── 저장 목록 화면 ── */
-        function StorageScreen({ onSelect, selected }) {
+        function SearchView({ onClose, onSelect }) {
+            const [startDate, setStartDate] = React.useState("");
+            const [endDate, setEndDate] = React.useState("");
+            const [minScore, setMinScore] = React.useState("");
+            const [maxScore, setMaxScore] = React.useState("");
+            const [minInfer, setMinInfer] = React.useState("");
+            const [maxInfer, setMaxInfer] = React.useState("");
+            const [results, setResults] = React.useState(null);
+            const [loading, setLoading] = React.useState(false);
+
+            const search = async () => {
+                setLoading(true);
+                const params = new URLSearchParams();
+                params.set("limit", "200");
+                params.set("min_score", minScore !== "" ? (parseFloat(minScore) / 100).toString() : "0");
+                if (maxScore !== "") params.set("max_score", (parseFloat(maxScore) / 100).toString());
+                if (startDate) params.set("start_date", startDate);
+                if (endDate)   params.set("end_date", endDate);
+                if (minInfer !== "") params.set("min_inference_time", minInfer);
+                if (maxInfer !== "") params.set("max_inference_time", maxInfer);
+                try {
+                    const data = await api.get("/defects?" + params.toString());
+                    setResults(data);
+                } catch {
+                    setResults({ count: 0, defects: [] });
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="search-view">
+                    <div className="search-view-header">
+                        <span className="search-view-title">검색</span>
+                        <button className="search-view-close" onClick={onClose} title="닫기">×</button>
+                    </div>
+
+                        <div className="search-filters">
+                            <div className="search-filter-row">
+                                <span className="search-filter-label">날짜</span>
+                                <div className="search-filter-inputs">
+                                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                                    <span className="tilde">~</span>
+                                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="search-filter-row">
+                                <span className="search-filter-label">결함률 (%)</span>
+                                <div className="search-filter-inputs">
+                                    <input type="number" min="0" max="100" placeholder="최소" value={minScore} onChange={e => setMinScore(e.target.value)} />
+                                    <span className="tilde">~</span>
+                                    <input type="number" min="0" max="100" placeholder="최대" value={maxScore} onChange={e => setMaxScore(e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="search-filter-row">
+                                <span className="search-filter-label">추론 시간 (초)</span>
+                                <div className="search-filter-inputs">
+                                    <input type="number" min="0" step="0.001" placeholder="최소" value={minInfer} onChange={e => setMinInfer(e.target.value)} />
+                                    <span className="tilde">~</span>
+                                    <input type="number" min="0" step="0.001" placeholder="최대" value={maxInfer} onChange={e => setMaxInfer(e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button className="search-submit" onClick={search} disabled={loading}>
+                            {loading ? "검색 중..." : "🔍 검색"}
+                        </button>
+
+                        {results && (results.count === 0 ? (
+                            <div className="search-results">
+                                <div className="search-empty">검색 결과가 없어요.</div>
+                            </div>
+                        ) : (
+                            <div className="search-results">
+                                <div className="search-results-count">{results.count}건 검색됨</div>
+                                {results.defects.map(d => {
+                                    const score = typeof d.anomaly_score === "number" ? d.anomaly_score : parseFloat(d.anomaly_score);
+                                    const defectRate = Math.round(score * 100);
+                                    const dateStr = d.timestamp ? d.timestamp.slice(0, 10).replace(/-/g, ".") : "-";
+                                    return (
+                                        <div
+                                            key={d.id}
+                                            className="search-result-item"
+                                            onClick={() => { d.overlay_url && onSelect(d); onClose(); }}
+                                        >
+                                            <span className="search-result-thumb">사진</span>
+                                            <span className="search-result-label">결함률</span>
+                                            <span className="search-result-rate">{defectRate}</span>
+                                            <span className="search-result-date">{dateStr}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
+            );
+        }
+
+        function StorageScreen({ onSelect, selected, onSearch }) {
             const [defects, setDefects] = React.useState(null);
             const [loading, setLoading] = React.useState(false);
             const [error, setError] = React.useState(null);
@@ -981,14 +1485,29 @@
                 setLoading(false);
             };
 
+            const handleDelete = async (id) => {
+                if (!window.confirm("이 항목을 삭제할까요?")) return;
+                try {
+                    const res = await api.delete(`/defects/${id}`);
+                    if (res && res.success) {
+                        if (selected && selected.id === id) onSelect(null);
+                        await load();
+                    } else {
+                        alert("삭제 실패");
+                    }
+                } catch {
+                    alert("삭제 실패");
+                }
+            };
+
             React.useEffect(() => { load(); }, []);
 
             return (
                 <div className="panel storage-sidebar">
                     <div className="storage-sidebar-header">
                         <span style={{ fontWeight: 700, fontSize: 15 }}>storage</span>
-                        <button className="storage-search-btn" onClick={load} title="새로고침">
-                            {loading ? <span className="spinner dark" /> : "🔍"}
+                        <button className="storage-search-btn" onClick={onSearch} title="검색">
+                            🔍
                         </button>
                     </div>
 
@@ -1001,14 +1520,24 @@
                         {defects && defects.defects.map((d, i) => {
                             const score = typeof d.anomaly_score === "number" ? d.anomaly_score : parseFloat(d.anomaly_score);
                             const defectRate = Math.round(score * 100);
-                            const dateStr = d.created_at ? d.created_at.slice(0, 10).replace(/-/g, ".") : "-";
+                            const dateStr = d.timestamp ? d.timestamp.slice(0, 10).replace(/-/g, ".") : "-";
+                            const isSelected = selected && selected.id === d.id;
                             return (
-                                <div key={i} className="storage-item" onClick={() => d.overlay_url && onSelect(d)}>
+                                <div
+                                    key={i}
+                                    className={"storage-item" + (isSelected ? " selected" : "")}
+                                    onClick={() => d.overlay_url && onSelect(d)}
+                                >
                                     <button className="storage-item-thumb">사진</button>
                                     <div className="storage-item-info">
                                         <div className="storage-item-date">{dateStr}</div>
-                                        <div className="storage-item-score">결함율 {defectRate}</div>
+                                        <div className="storage-item-score">결함률 {defectRate}</div>
                                     </div>
+                                    <button
+                                        className="storage-item-delete"
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(d.id); }}
+                                        title="삭제"
+                                    >×</button>
                                 </div>
                             );
                         })}
@@ -1024,6 +1553,7 @@
             const [lastResult, setLastResult] = React.useState(null);
             const [saveDb, setSaveDb] = React.useState(false);
             const [storageSelected, setStorageSelected] = React.useState(null);
+            const [searchOpen, setSearchOpen] = React.useState(false);
             const { health, failed } = useHealth();
 
             return (
@@ -1035,14 +1565,45 @@
                     />
                     {screen === "home" && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} saveDb={saveDb} />}
                     {screen === "result" && <ResultScreen result={lastResult} setScreen={setScreen} />}
-                    {screen === "storage" && (
+                    {screen === "storage" && (searchOpen ? (
+                        <SearchView
+                            onClose={() => setSearchOpen(false)}
+                            onSelect={(d) => { setStorageSelected(d); setSearchOpen(false); }}
+                        />
+                    ) : (
                         <div className="storage-layout">
                             <div className="storage-left">
                                 <div className="panel storage-left-panel" style={{ borderRadius: 28 }}>
-                                    {storageSelected ? (
-                                        <img src={`${BASE}${storageSelected.overlay_url}`} alt="결과 이미지"
-                                            style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 20 }} />
-                                    ) : (
+                                    {storageSelected ? (() => {
+                                        const sScore = typeof storageSelected.anomaly_score === "number"
+                                            ? storageSelected.anomaly_score
+                                            : parseFloat(storageSelected.anomaly_score);
+                                        const sDefectRate = Math.round((sScore || 0) * 100);
+                                        const sDateStr = storageSelected.timestamp
+                                            ? storageSelected.timestamp.slice(0, 10).replace(/-/g, ".")
+                                            : "-";
+                                        const sInferStr = storageSelected.inference_time != null
+                                            ? `${storageSelected.inference_time}초`
+                                            : "-";
+                                        return (
+                                            <div className="storage-detail">
+                                                <div className="storage-detail-image">
+                                                    <img src={`${BASE}${storageSelected.overlay_url}`} alt="결과 이미지" />
+                                                </div>
+                                                <div className="storage-detail-info">
+                                                    <div className="storage-detail-date">{sDateStr}</div>
+                                                    <div className="storage-detail-row">
+                                                        <span className="storage-detail-label">결함률</span>
+                                                        <span className="storage-detail-value">{sDefectRate}</span>
+                                                    </div>
+                                                    <div className="storage-detail-row">
+                                                        <span className="storage-detail-label">추론 시간</span>
+                                                        <span className="storage-detail-value small">{sInferStr}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })() : (
                                         <div className="storage-placeholder">
                                             <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                                 <rect x="3" y="3" width="18" height="18" rx="3" ry="3" />
@@ -1054,9 +1615,13 @@
                                     )}
                                 </div>
                             </div>
-                            <StorageScreen onSelect={setStorageSelected} selected={storageSelected} />
+                            <StorageScreen
+                                onSelect={setStorageSelected}
+                                selected={storageSelected}
+                                onSearch={() => setSearchOpen(true)}
+                            />
                         </div>
-                    )}
+                    ))}
                 </div>
             );
         }

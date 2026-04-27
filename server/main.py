@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image
 import cv2
 
-from fastapi import FastAPI, Form, File, UploadFile
+from fastapi import FastAPI, Form, File, UploadFile, Body
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -133,6 +133,7 @@ async def detect(file: UploadFile = File(...), save_to_db: str = Form("false")):
                 saved = save_defect(
                     source="client_camera", model_type="patchcore", anomaly_score=float(score),
                     original_url=original_url, overlay_url=overlay_url,
+                    inference_time=infer_time,
                 )
             except Exception as e:
                 print(f"DB 저장 실패: {e}")
@@ -156,17 +157,94 @@ async def detect(file: UploadFile = File(...), save_to_db: str = Form("false")):
 # 결함 DB 조회 API
 # ========================================
 @app.get("/defects")
-async def defects_list(limit: int = 100, min_score: float = 0.3):
-    data = get_defects(limit=limit, min_score=min_score)
+async def defects_list(
+    limit: int = 100,
+    min_score: float = 0.3,
+    max_score: float = None,
+    start_date: str = None,
+    end_date: str = None,
+    min_inference_time: float = None,
+    max_inference_time: float = None,
+):
+    """
+    검색/필터 query params:
+        min_score / max_score              : 결함율 범위 (0~1)
+        start_date / end_date              : 날짜 범위 "YYYY-MM-DD"
+        min_inference_time / max_inference_time : 추론 시간 범위 (초)
+    """
+    data = get_defects(
+        limit=limit,
+        min_score=min_score, max_score=max_score,
+        start_date=start_date, end_date=end_date,
+        min_inference_time=min_inference_time,
+        max_inference_time=max_inference_time,
+    )
     return {"count": len(data), "defects": data}
 
 
 @app.delete("/defects/{defect_id}")
 async def defect_delete(defect_id: int):
-    deleted = delete_defect(defect_id)
-    if deleted:
-        return {"success": True}
-    return JSONResponse(status_code=404, content={"error": "항목을 찾을 수 없어요."})
+    # row 삭제 전에 파일 경로 미리 조회 후 같이 unlink
+    import sqlite3
+    from database import DB_PATH
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT original_url, overlay_url FROM defects WHERE id = ?", (defect_id,)
+    ).fetchone()
+    conn.close()
+
+    if row is None:
+        return JSONResponse(status_code=404, content={"error": "항목을 찾을 수 없어요."})
+
+    delete_defect(defect_id)
+
+    for url in (row["original_url"], row["overlay_url"]):
+        if url and url.startswith("/static/"):
+            fpath = os.path.join(STATIC_DIR, url[len("/static/"):])
+            try:
+                os.remove(fpath)
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                print(f"파일 삭제 실패 ({fpath}): {e}")
+
+    return {"success": True}
+
+
+def _save_data_uri(data_uri: str, prefix: str) -> str:
+    """data URI를 disk에 저장하고 /static/ 경로 반환."""
+    _, b64 = data_uri.split(",", 1)
+    img_bytes = base64.b64decode(b64)
+    rid = str(uuid.uuid4())[:8]
+    filename = f"{prefix}_{rid}.png"
+    with open(os.path.join(STATIC_DIR, filename), "wb") as f:
+        f.write(img_bytes)
+    return f"/static/{filename}"
+
+
+@app.post("/defects/save_current")
+async def defects_save_current(payload: dict = Body(...)):
+    """이미 detect된 결과를 사후 DB에 저장 (선택 버튼). 임계값 무시."""
+    score = float(payload.get("anomaly_score", 0))
+    inference_time = payload.get("inference_time")
+    original_url = payload.get("original_url") or ""
+    overlay_url = payload.get("overlay_url") or ""
+
+    # data URI면 disk에 떨어뜨리고 정적 경로로 교체
+    if original_url.startswith("data:"):
+        original_url = _save_data_uri(original_url, "cam")
+    if overlay_url.startswith("data:"):
+        overlay_url = _save_data_uri(overlay_url, "cam_ov")
+
+    saved = save_defect(
+        source="client_camera", model_type="patchcore",
+        anomaly_score=score,
+        original_url=original_url, overlay_url=overlay_url,
+        inference_time=inference_time,
+        force=True,
+    )
+    return {"saved": bool(saved), "original_url": original_url, "overlay_url": overlay_url}
 
 
 @app.get("/defects/stats")
