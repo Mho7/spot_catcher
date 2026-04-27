@@ -15,15 +15,18 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-IMAGE_SIZE = (288, 512)
+# ⚠️ [임시] 경량 테스트 모델용 설정 — 동작 확인 / 레이아웃 작업용 (실서비스 모델 아님)
+# 실제 모델로 복귀할 땐 아래 "원본" 값으로 되돌릴 것
+IMAGE_SIZE = (144, 256)        # 원본: (288, 512)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
 # ============================================
 # PatchCore 설정
 # ============================================
-PATCHCORE_BACKBONE = "wide_resnet50_2"
-PATCHCORE_LAYERS = ["layer1", "layer2"]
+# ⚠️ [임시] 경량 모델(patchcore_light.pkl) 메타데이터에 맞춘 값
+PATCHCORE_BACKBONE = "resnet18"            # 원본: "wide_resnet50_2"
+PATCHCORE_LAYERS = ["layer2"]              # 원본: ["layer1", "layer2"]
 
 # ============================================
 # 탐지 임계값
