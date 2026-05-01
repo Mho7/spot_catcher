@@ -28,6 +28,8 @@ class PatchCore:
         
         # 메모리 뱅크 (학습 후 채워짐)
         self.memory_bank = None
+        self.norm_p_low  = None
+        self.norm_p_high = None
   
         
         full_model = getattr(models, backbone)(weights='IMAGENET1K_V1')
@@ -97,7 +99,18 @@ class PatchCore:
         # KNN 추론용 GPU 텐서 캐싱
         self._build_memory_bank_tensor()
 
-    
+        # 학습 데이터 distance 분포로 정규화 기준 계산
+        all_train_distances = []
+        for images, _ in tqdm(dataloader, desc="정규화 통계 수집"):
+            patches, _ = self._extract_features(images)
+            distances = self._knn_search(patches.reshape(-1, patches.shape[-1]))
+            all_train_distances.append(distances)
+
+        all_train_distances = np.concatenate(all_train_distances)
+        self.norm_p_low  = float(np.percentile(all_train_distances, 1))
+        self.norm_p_high = float(np.percentile(all_train_distances, 99))
+
+
     def _greedy_coreset(self, features, n_select):
 
         if features.shape[1] > 128:
@@ -181,11 +194,12 @@ class PatchCore:
         # 가우시안 스무딩
         anomaly_map = gaussian_filter(anomaly_map, sigma=1)
 
-        if anomaly_map.max() > anomaly_map.min():
-            anomaly_map = (anomaly_map - anomaly_map.min()) / (anomaly_map.max() - anomaly_map.min())
+        # 학습 데이터 기반 전역 정규화 (이미지 간 절대 기준 유지)
+        anomaly_map = (anomaly_map - self.norm_p_low) / (self.norm_p_high - self.norm_p_low + 1e-8)
+        anomaly_map = np.clip(anomaly_map, 0, 1)
 
-        top_k = min(5, len(distances))
-        anomaly_score = float(np.sort(distances)[-top_k:].mean())
+        top_k = min(5, H * W)
+        anomaly_score = float(np.sort(anomaly_map.flatten())[-top_k:].mean())
 
         return anomaly_score, anomaly_map
     
@@ -199,6 +213,8 @@ class PatchCore:
             'feature_map_size': self.feature_map_size,
             'layers': self.layers,
             'coreset_ratio': self.coreset_ratio,
+            'norm_p_low': self.norm_p_low,
+            'norm_p_high': self.norm_p_high,
         }
         
         with open(path, 'wb') as f:
@@ -213,6 +229,8 @@ class PatchCore:
         
         self.memory_bank = save_data['memory_bank']
         self.feature_map_size = save_data['feature_map_size']
+        self.norm_p_low  = save_data.get('norm_p_low')
+        self.norm_p_high = save_data.get('norm_p_high')
 
         # KNN 추론용 GPU 텐서 재구성
         self._build_memory_bank_tensor()
