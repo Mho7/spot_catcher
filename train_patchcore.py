@@ -11,7 +11,7 @@ PatchCore 학습 스크립트
 """
 import os
 
-from config import TRAIN_DIR
+from config import PREPROCESSED_TRAIN_DIR
 from models.patchcore import PatchCore
 from utils.dataset import get_dataloader
 
@@ -19,11 +19,11 @@ from utils.dataset import get_dataloader
 def main():
 
     # ========================================
-    # 1. 데이터 로드
+    # 1. 데이터 로드 (전처리된 이미지 사용)
     # ========================================
     print("\n데이터 로드 중...")
-    train_loader = get_dataloader(TRAIN_DIR, batch_size=4, shuffle=True,
-                                  augment=True, repeat=5)
+    train_loader = get_dataloader(PREPROCESSED_TRAIN_DIR, batch_size=1, shuffle=True,
+                                  augment=True, repeat=2)
 
     if len(train_loader.dataset) == 0:
         print("학습 데이터가 없습니다!")

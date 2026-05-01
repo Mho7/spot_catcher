@@ -77,15 +77,14 @@ class PatchCore:
     def fit(self, dataloader):
 
         all_patches = []
-        
 
         for images, filenames in tqdm(dataloader, desc="특징 추출"):
             patches, self.feature_map_size = self._extract_features(images)
-            all_patches.append(patches.cpu().numpy())
-        
-     
-        all_patches = np.concatenate(all_patches, axis=0)  # [N, num_patches, C]
-        all_patches = all_patches.reshape(-1, all_patches.shape[-1])  # [N*num_patches, C]
+            # 바로 2D로 reshape하여 메모리 절약 [B*H*W, C]
+            patches_2d = patches.reshape(-1, patches.shape[-1]).cpu().numpy()
+            all_patches.append(patches_2d)
+
+        all_patches = np.concatenate(all_patches, axis=0)  # [total_patches, C]
         
         
   

@@ -3,10 +3,12 @@
 
 역할:
 - 폴더에서 이미지를 읽어서 PyTorch 텐서로 변환
+- 컨투어 크롭 + SAM 마스킹 전처리 지원
 - ImageNet 정규화 적용 (사전학습 모델용)
 - 학습/테스트 데이터 분리
 """
 import os
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
@@ -22,11 +24,12 @@ class SurfaceDataset(Dataset):
     표면 이미지 데이터셋 클래스
 
     사용법:
-        dataset = SurfaceDataset("data/train/good")
-        image, filename = dataset[0]  # 첫 번째 이미지와 파일명
+        # 기본 사용 (전처리 없이)
+        dataset = SurfaceDataset("data/train")
+        image, filename = dataset[0]
 
-        # 데이터 증강 + 반복으로 데이터 수 늘리기
-        dataset = SurfaceDataset("data/train/good", augment=True, repeat=20)
+        # 전처리된 이미지 사용 (크롭+마스킹 완료된 폴더)
+        dataset = SurfaceDataset("data/preprocessed/train", augment=True, repeat=20)
     """
 
     def __init__(self, image_dir, transform=None, augment=False, repeat=1):
