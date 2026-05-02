@@ -105,7 +105,7 @@ def get_train_transform():
     return transforms.Compose([
         transforms.RandomRotation(degrees=5),
         transforms.RandomAffine(degrees=0, translate=(0.03, 0.03)),
-        transforms.ColorJitter(brightness=0.3, contrast=0.2),
+        transforms.ColorJitter(brightness=0.5, contrast=0.3, saturation=0.2),
         transforms.Resize(IMAGE_SIZE),
         transforms.ToTensor(),
         transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)

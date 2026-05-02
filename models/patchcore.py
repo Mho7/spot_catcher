@@ -106,8 +106,8 @@ class PatchCore:
             all_train_distances.append(distances)
 
         all_train_distances = np.concatenate(all_train_distances)
-        self.norm_p_low  = float(np.percentile(all_train_distances, 1))
-        self.norm_p_high = float(np.percentile(all_train_distances, 99))
+        self.norm_p_low  = float(np.percentile(all_train_distances, 0))
+        self.norm_p_high = float(np.percentile(all_train_distances, 100))
 
 
     def _greedy_coreset(self, features, n_select):
