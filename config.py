@@ -44,5 +44,5 @@ os.makedirs(PREPROCESSED_TEST_BAD_DIR, exist_ok=True)
 # PatchCore 설정
 # ============================================
 PATCHCORE_BACKBONE = "wide_resnet50_2"  # 백본 네트워크
-PATCHCORE_LAYERS = ["layer1", "layer2"]  # 특징 추출할 레이어
+PATCHCORE_LAYERS = ["layer2", "layer3"]  # 특징 추출할 레이어
 CORESET_RATIO = 0.1  # 메모리 뱅크에서 유지할 패치 비율
