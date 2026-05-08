@@ -30,7 +30,7 @@ import uvicorn
 from config import IMAGE_SIZE, STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT, ANOMALY_THRESHOLD
 from models.patchcore import PatchCore
 from utils.dataset import get_default_transform
-from utils.visualization import make_single_overlay, save_single_overlay
+from utils.visualization import make_heatmap, save_heatmap
 from database import save_defect, get_defects, get_defect_stats, delete_defect
 
 # ========================================
@@ -79,13 +79,10 @@ pc_transform = get_default_transform()
 # 탐지 API  ← 클라이언트(노트북)가 프레임을 올려서 결과를 받아가는 핵심 엔드포인트
 # ========================================
 @app.post("/detect")
-async def detect(file: UploadFile = File(...), save_to_db: str = Form("false")):
+async def detect(file: UploadFile = File(...)):
     """
-    클라이언트(노트북 카메라)에서 캡처한 이미지를 받아 이상 탐지 수행
-
-    Request:
-        file      : 이미지 파일 (JPEG/PNG)
-        save_to_db: "true"면 결함 DB에 저장
+    클라이언트(노트북 카메라)에서 캡처한 이미지를 받아 이상 탐지 수행.
+    결함으로 판정(score > ANOMALY_THRESHOLD)되면 자동으로 DB에 저장.
 
     Response:
         anomaly_score : 이상 점수 (0~1)
@@ -94,6 +91,7 @@ async def detect(file: UploadFile = File(...), save_to_db: str = Form("false")):
         inference_time: 추론 소요 시간(초)
         original_url  : 원본 이미지 URL  (/static/...)
         overlay_url   : 오버레이 이미지 URL
+        saved_to_db   : DB 저장 여부
     """
     try:
         if patchcore_model is None or patchcore_model.memory_bank is None:
@@ -114,21 +112,21 @@ async def detect(file: UploadFile = File(...), save_to_db: str = Form("false")):
         score, anomaly_map = patchcore_model.predict(tensor)
         infer_time = time.time() - start
 
-        should_save = save_to_db.lower() == "true"
+        is_anomaly = score > ANOMALY_THRESHOLD
 
-        if should_save:
+        if is_anomaly:
             rid = str(uuid.uuid4())[:8]
             Image.fromarray(original_np).save(os.path.join(STATIC_DIR, f"cam_{rid}.png"))
-            save_single_overlay(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
+            save_heatmap(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
             original_url = f"/static/cam_{rid}.png"
             overlay_url = f"/static/cam_ov_{rid}.png"
         else:
-            overlay_np = make_single_overlay(original_np, anomaly_map)
+            heatmap_np = make_heatmap(original_np, anomaly_map)
             original_url = _to_data_uri(original_np)
-            overlay_url = _to_data_uri(overlay_np)
+            overlay_url = _to_data_uri(heatmap_np)
 
         saved = False
-        if should_save:
+        if is_anomaly:
             try:
                 saved = save_defect(
                     source="client_camera", model_type="patchcore", anomaly_score=float(score),
@@ -141,8 +139,8 @@ async def detect(file: UploadFile = File(...), save_to_db: str = Form("false")):
             "success": True,
             "model": "patchcore",
             "anomaly_score": round(float(score), 4),
-            "is_anomaly": score > ANOMALY_THRESHOLD,
-            "verdict": "결함 탐지" if score > ANOMALY_THRESHOLD else "정상",
+            "is_anomaly": bool(is_anomaly),
+            "verdict": "결함 탐지" if is_anomaly else "정상",
             "inference_time": round(infer_time, 3),
             "original_url": original_url,
             "overlay_url": overlay_url,

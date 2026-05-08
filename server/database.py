@@ -1,7 +1,7 @@
 """
 결함 데이터베이스 모듈
 
-결함률 30% 이상(anomaly_score >= 0.3)인 탐지 결과를 SQLite DB에 저장합니다.
+결함으로 판정된 탐지 결과를 SQLite DB에 저장합니다. (판정 기준: config.py ANOMALY_THRESHOLD)
 DB 파일: defects.db (server/ 폴더에 자동 생성)
 """
 import sqlite3
@@ -9,9 +9,6 @@ import os
 from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "defects.db")
-
-# 30% 이상일 때 저장
-DEFECT_DB_THRESHOLD = 0.3
 
 
 def init_db():
@@ -36,16 +33,7 @@ def init_db():
 def save_defect(source: str, model_type: str, anomaly_score: float,
                 original_url: str = None, overlay_url: str = None,
                 filename: str = None):
-    """
-    결함률 30% 이상인 경우 DB에 저장
-
-    Returns:
-        True  — 저장됨
-        False — 임계값 미달로 저장 안 함
-    """
-    if anomaly_score < DEFECT_DB_THRESHOLD:
-        return False
-
+    """결함 레코드 저장. 호출 전 판정이 완료된 경우에만 호출할 것."""
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
         INSERT INTO defects (timestamp, source, model_type, filename, anomaly_score, original_url, overlay_url)
@@ -64,7 +52,7 @@ def save_defect(source: str, model_type: str, anomaly_score: float,
     return True
 
 
-def get_defects(limit: int = 100, min_score: float = DEFECT_DB_THRESHOLD):
+def get_defects(limit: int = 100, min_score: float = 0.0):
     """
     저장된 결함 데이터 조회
 
@@ -106,8 +94,7 @@ def get_defect_stats():
             ROUND(MAX(anomaly_score), 4)    AS max_score,
             ROUND(MIN(anomaly_score), 4)    AS min_score
         FROM defects
-        WHERE anomaly_score >= ?
-    """, (DEFECT_DB_THRESHOLD,)).fetchone()
+    """).fetchone()
     conn.close()
     return dict(stats) if stats else {}
 
