@@ -155,8 +155,10 @@ async def detect(file: UploadFile = File(...)):
 # 결함 DB 조회 API
 # ========================================
 @app.get("/defects")
-async def defects_list(limit: int = 100, min_score: float = 0.3):
-    data = get_defects(limit=limit, min_score=min_score)
+async def defects_list(limit: int = 100, min_score: float = 0.0,
+                       min_inference_time: float = None, max_inference_time: float = None):
+    data = get_defects(limit=limit, min_score=min_score,
+                       min_infer=min_inference_time, max_infer=max_inference_time)
     return {"count": len(data), "defects": data}
 
 

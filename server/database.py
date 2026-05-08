@@ -60,24 +60,25 @@ def save_defect(source: str, model_type: str, anomaly_score: float,
     return True
 
 
-def get_defects(limit: int = 100, min_score: float = 0.0):
-    """
-    저장된 결함 데이터 조회
-
-    Args:
-        limit: 최대 조회 개수 (최신순)
-        min_score: 최소 anomaly_score 필터
-    Returns:
-        list of dict
-    """
+def get_defects(limit: int = 100, min_score: float = 0.0,
+                min_infer: float = None, max_infer: float = None):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("""
+    conditions = ["anomaly_score >= ?"]
+    params = [min_score]
+    if min_infer is not None:
+        conditions.append("inference_time >= ?")
+        params.append(min_infer)
+    if max_infer is not None:
+        conditions.append("inference_time <= ?")
+        params.append(max_infer)
+    params.append(limit)
+    rows = conn.execute(f"""
         SELECT * FROM defects
-        WHERE anomaly_score >= ?
+        WHERE {' AND '.join(conditions)}
         ORDER BY id DESC
         LIMIT ?
-    """, (min_score, limit)).fetchall()
+    """, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
