@@ -26,7 +26,8 @@ def init_db():
             filename    TEXT,              -- 업로드 파일명 (카메라는 NULL)
             anomaly_score REAL  NOT NULL,
             original_url  TEXT,
-            overlay_url   TEXT
+            overlay_url   TEXT,
+            inference_time REAL
         )
     """)
     conn.commit()
@@ -35,21 +36,22 @@ def init_db():
 
 def save_defect(source: str, model_type: str, anomaly_score: float,
                 original_url: str = None, overlay_url: str = None,
-                filename: str = None):
+                filename: str = None, inference_time: float = None,
+                force: bool = False):
     """
-    결함률 30% 이상인 경우 DB에 저장
+    결함률 30% 이상인 경우 DB에 저장 (force=True면 임계값 무시).
 
     Returns:
         True  — 저장됨
         False — 임계값 미달로 저장 안 함
     """
-    if anomaly_score < DEFECT_DB_THRESHOLD:
+    if not force and anomaly_score < DEFECT_DB_THRESHOLD:
         return False
 
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
-        INSERT INTO defects (timestamp, source, model_type, filename, anomaly_score, original_url, overlay_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO defects (timestamp, source, model_type, filename, anomaly_score, original_url, overlay_url, inference_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         source,
@@ -58,30 +60,51 @@ def save_defect(source: str, model_type: str, anomaly_score: float,
         round(anomaly_score, 4),
         original_url,
         overlay_url,
+        round(float(inference_time), 4) if inference_time is not None else None,
     ))
     conn.commit()
     conn.close()
     return True
 
 
-def get_defects(limit: int = 100, min_score: float = DEFECT_DB_THRESHOLD):
+def get_defects(limit: int = 100, min_score: float = DEFECT_DB_THRESHOLD,
+                max_score: float = None,
+                start_date: str = None, end_date: str = None,
+                min_inference_time: float = None,
+                max_inference_time: float = None):
     """
-    저장된 결함 데이터 조회
+    저장된 결함 데이터 조회 (필터 조합 가능)
 
     Args:
         limit: 최대 조회 개수 (최신순)
-        min_score: 최소 anomaly_score 필터
-    Returns:
-        list of dict
+        min_score / max_score: anomaly_score 범위 (0~1)
+        start_date / end_date: "YYYY-MM-DD" 날짜 범위 (timestamp prefix 비교)
+        min_inference_time / max_inference_time: 추론 시간(초) 범위
     """
+    where = ["anomaly_score >= ?"]
+    params = [min_score]
+    if max_score is not None:
+        where.append("anomaly_score <= ?")
+        params.append(max_score)
+    if start_date:
+        where.append("substr(timestamp, 1, 10) >= ?")
+        params.append(start_date)
+    if end_date:
+        where.append("substr(timestamp, 1, 10) <= ?")
+        params.append(end_date)
+    if min_inference_time is not None:
+        where.append("inference_time >= ?")
+        params.append(min_inference_time)
+    if max_inference_time is not None:
+        where.append("inference_time <= ?")
+        params.append(max_inference_time)
+
+    sql = f"SELECT * FROM defects WHERE {' AND '.join(where)} ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("""
-        SELECT * FROM defects
-        WHERE anomaly_score >= ?
-        ORDER BY id DESC
-        LIMIT ?
-    """, (min_score, limit)).fetchall()
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 

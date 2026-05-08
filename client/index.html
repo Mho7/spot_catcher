@@ -78,63 +78,6 @@
             color: #fff;
         }
 
-        /* ── 저장 토글 (상단) ── */
-        .save-toggle-box {
-            background: rgba(255, 255, 255, 0.55);
-            border-radius: 12px;
-            padding: 6px 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-            font-size: 15px;
-            font-weight: 600;
-        }
-
-        .switch {
-            position: relative;
-            width: 48px;
-            height: 24px;
-            display: inline-block;
-            flex-shrink: 0;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            inset: 0;
-            border-radius: 999px;
-            background: #b8bcc1;
-            transition: 0.3s;
-            cursor: pointer;
-        }
-
-        .slider::before {
-            content: "";
-            position: absolute;
-            width: 26px;
-            height: 14px;
-            left: 4px;
-            top: 5px;
-            border-radius: 999px;
-            background: white;
-            transition: 0.3s;
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .switch input:checked+.slider {
-            background: #737aff;
-        }
-
-        .switch input:checked+.slider::before {
-            transform: translateX(14px);
-        }
-
         /* ── 서버 상태 ── */
         .server-status {
             background: rgba(255, 255, 255, 0.55);
@@ -765,23 +708,25 @@
         }
 
         .storage-detail-info {
-            display: flex;
-            flex-direction: column;
-            gap: 22px;
-            text-align: right;
+            display: grid;
+            grid-template-columns: max-content max-content;
+            column-gap: 14px;
+            row-gap: 22px;
+            justify-content: end;
+            align-items: baseline;
             min-width: 170px;
         }
 
         .storage-detail-date {
-            font-size: 18px;
+            grid-column: 1 / -1;
+            justify-self: start;
+            font-size: 22px;
+            font-weight: 600;
             color: #444;
         }
 
         .storage-detail-row {
-            display: flex;
-            justify-content: flex-end;
-            align-items: baseline;
-            gap: 14px;
+            display: contents;
         }
 
         .storage-detail-label {
@@ -790,6 +735,7 @@
         }
 
         .storage-detail-value {
+            justify-self: end;
             font-size: 30px;
             font-weight: 700;
             color: #c0292a;
@@ -1137,7 +1083,7 @@
         }
 
         /* ── 상단 바 ── */
-        function Topbar({ screen, setScreen, health, failed, saveDb, setSaveDb }) {
+        function Topbar({ screen, setScreen, health, failed }) {
             const subtitles = { home: "", result: "", storage: "" };
             return (
                 <div className="topbar">
@@ -1156,13 +1102,6 @@
                             </button>
                         ) : (
                             <>
-                                <div className="save-toggle-box">
-                                    <span>test</span>
-                                    <label className="switch">
-                                        <input type="checkbox" checked={saveDb} onChange={e => setSaveDb(e.target.checked)} />
-                                        <span className="slider" />
-                                    </label>
-                                </div>
                                 {screen !== "home" && (
                                     <button className="nav-btn" onClick={() => setScreen("home")} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1561,7 +1500,6 @@
                     <Topbar
                         screen={screen} setScreen={setScreen}
                         health={health} failed={failed}
-                        saveDb={saveDb} setSaveDb={setSaveDb}
                     />
                     {screen === "home" && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} saveDb={saveDb} />}
                     {screen === "result" && <ResultScreen result={lastResult} setScreen={setScreen} />}
