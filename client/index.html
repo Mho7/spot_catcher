@@ -1131,7 +1131,7 @@
         }
 
         /* ── 홈 화면 ── */
-        function HomeScreen({ setScreen, setLastResult, health, failed }) {
+        function HomeScreen({ setScreen, setLastResult, health, failed, saveDb }) {
             const [loading, setLoading] = React.useState(false);
             const [error, setError] = React.useState(null);
             const [camReady, setCamReady] = React.useState(false);
@@ -1139,7 +1139,7 @@
             const streamRef = React.useRef(null);
 
             React.useEffect(() => {
-                navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } })
+                navigator.mediaDevices.getUserMedia({ video: true })
                     .then(stream => { streamRef.current = stream; setCamReady(true); })
                     .catch(() => setCamReady(false));
                 return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); };
@@ -1165,6 +1165,7 @@
                     const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
                     const fd = new FormData();
                     fd.append("file", blob, "frame.jpg");
+                    fd.append("save_to_db", String(saveDb));
                     const data = await fetch(`${BASE}/detect`, { method: "POST", body: fd, headers: NGROK_HEADER }).then(r => r.json());
                     if (data.success) {
                         setLastResult(data);
@@ -1227,7 +1228,34 @@
                 </div>
             );
 
-            const isSaved = result.saved_to_db;
+            const [savedNow, setSavedNow] = React.useState(false);
+            const [saving, setSaving] = React.useState(false);
+            const isSaved = result.saved_to_db || savedNow;
+
+            const handleSave = async () => {
+                if (isSaved || saving) return;
+                setSaving(true);
+                try {
+                    const res = await fetch(`${BASE}/defects/save_current`, {
+                        method: "POST",
+                        headers: { ...NGROK_HEADER, "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            anomaly_score: result.anomaly_score,
+                            inference_time: result.inference_time,
+                            original_url: result.original_url,
+                            overlay_url: result.overlay_url,
+                        }),
+                    }).then(r => r.json());
+                    if (res && res.saved) {
+                        setSavedNow(true);
+                    } else {
+                        alert("저장에 실패했어요.");
+                    }
+                } catch {
+                    alert("저장에 실패했어요.");
+                }
+                setSaving(false);
+            };
 
             const defectRate = Math.round((result.anomaly_score || 0) * 100);
             const imgSrc = result.overlay_url
@@ -1249,9 +1277,12 @@
                         </div>
                         <div className="result-side">
                             <div className="result-side-label">DB 저장 여부</div>
-                            <div className={"result-side-btn white" + (isSaved ? " active" : "")}>
-                                {isSaved ? "저장됨" : "미저장"}
-                            </div>
+                            <button
+                                className={"result-side-btn white" + (isSaved ? " active" : "")}
+                                onClick={handleSave}
+                                disabled={isSaved || saving}
+                                title={isSaved ? "이미 저장됨" : "현재 결과를 저장소에 저장"}
+                            >{saving ? "저장 중..." : (isSaved ? "저장됨" : "선택")}</button>
                             <button
                                 className="result-side-btn dark"
                                 onClick={() => setScreen("home")}
@@ -1459,6 +1490,7 @@
         function App() {
             const [screen, setScreen] = React.useState("home");
             const [lastResult, setLastResult] = React.useState(null);
+            const [saveDb, setSaveDb] = React.useState(false);
             const [storageSelected, setStorageSelected] = React.useState(null);
             const [searchOpen, setSearchOpen] = React.useState(false);
             const { health, failed } = useHealth();
@@ -1469,7 +1501,7 @@
                         screen={screen} setScreen={setScreen}
                         health={health} failed={failed}
                     />
-                    {screen === "home" && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} />}
+                    {screen === "home" && <HomeScreen setScreen={setScreen} setLastResult={setLastResult} health={health} failed={failed} saveDb={saveDb} />}
                     {screen === "result" && <ResultScreen result={lastResult} setScreen={setScreen} />}
                     {screen === "storage" && (searchOpen ? (
                         <SearchView
