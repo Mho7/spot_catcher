@@ -130,6 +130,7 @@ async def detect(file: UploadFile = File(...)):
             try:
                 saved = save_defect(
                     source="client_camera", model_type="patchcore", anomaly_score=float(score),
+                    inference_time=infer_time,
                     original_url=original_url, overlay_url=overlay_url,
                 )
             except Exception as e:

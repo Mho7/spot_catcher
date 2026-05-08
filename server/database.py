@@ -21,29 +21,37 @@ def init_db():
             source      TEXT    NOT NULL,  -- 'upload' or 'camera'
             model_type  TEXT    NOT NULL,  -- 'patchcore'
             filename    TEXT,              -- 업로드 파일명 (카메라는 NULL)
-            anomaly_score REAL  NOT NULL,
-            original_url  TEXT,
-            overlay_url   TEXT
+            anomaly_score   REAL  NOT NULL,
+            inference_time  REAL,
+            original_url    TEXT,
+            overlay_url     TEXT
         )
     """)
     conn.commit()
+    # 기존 DB에 inference_time 컬럼 없으면 추가
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(defects)").fetchall()]
+    if "inference_time" not in cols:
+        conn.execute("ALTER TABLE defects ADD COLUMN inference_time REAL")
+        conn.commit()
     conn.close()
 
 
 def save_defect(source: str, model_type: str, anomaly_score: float,
+                inference_time: float = None,
                 original_url: str = None, overlay_url: str = None,
                 filename: str = None):
     """결함 레코드 저장. 호출 전 판정이 완료된 경우에만 호출할 것."""
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
-        INSERT INTO defects (timestamp, source, model_type, filename, anomaly_score, original_url, overlay_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO defects (timestamp, source, model_type, filename, anomaly_score, inference_time, original_url, overlay_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         source,
         model_type,
         filename,
         round(anomaly_score, 4),
+        round(inference_time, 3) if inference_time is not None else None,
         original_url,
         overlay_url,
     ))
