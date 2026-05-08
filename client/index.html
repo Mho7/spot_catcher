@@ -629,10 +629,13 @@
         }
 
         .storage-item-thumb {
+            width: 56px;
+            height: 56px;
+            object-fit: cover;
             background: rgba(255, 255, 255, 0.75);
             border: none;
             border-radius: 8px;
-            padding: 8px 10px;
+            padding: 0;
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
@@ -998,10 +1001,13 @@
         .search-result-item:hover { background: #fafafa; }
 
         .search-result-thumb {
+            width: 52px;
+            height: 52px;
+            object-fit: cover;
             background: #ddd;
             border-radius: 8px;
             text-align: center;
-            padding: 10px 4px;
+            padding: 0;
             font-size: 11px;
             font-weight: 700;
             color: #444;
@@ -1396,7 +1402,9 @@
                                             className="search-result-item"
                                             onClick={() => { d.overlay_url && onSelect(d); onClose(); }}
                                         >
-                                            <span className="search-result-thumb">사진</span>
+                                            {d.overlay_url
+                                                ? <img className="search-result-thumb" src={`${BASE}${d.overlay_url}`} alt="" />
+                                                : <span className="search-result-thumb">사진</span>}
                                             <span className="search-result-label">결함률</span>
                                             <span className="search-result-rate">{defectRate}</span>
                                             <span className="search-result-date">{dateStr}</span>
@@ -1467,7 +1475,9 @@
                                     className={"storage-item" + (isSelected ? " selected" : "")}
                                     onClick={() => d.overlay_url && onSelect(d)}
                                 >
-                                    <button className="storage-item-thumb">사진</button>
+                                    {d.overlay_url
+                                        ? <img className="storage-item-thumb" src={`${BASE}${d.overlay_url}`} alt="" />
+                                        : <button className="storage-item-thumb">사진</button>}
                                     <div className="storage-item-info">
                                         <div className="storage-item-date">{dateStr}</div>
                                         <div className="storage-item-score">결함률 {defectRate}</div>
