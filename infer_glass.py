@@ -12,6 +12,7 @@ import argparse
 import glob
 import time
 import numpy as np
+import cv2
 from PIL import Image
 import torch
 from torchvision import transforms
@@ -87,11 +88,6 @@ def infer_single(model, img_path, save_path, threshold, device, sam_masker=None)
     pil_img = Image.open(img_path).convert("RGB")
     original_np = np.array(pil_img.resize((IMAGESIZE_W, IMAGESIZE_H)))
 
-    # SAM 배경 제거
-    if sam_masker is not None:
-        masked_np, _ = sam_masker.mask_background(original_np)
-        pil_img = Image.fromarray(masked_np)
-
     tensor = transform(pil_img).unsqueeze(0).to(device)
 
     t0 = time.time()
@@ -99,6 +95,15 @@ def infer_single(model, img_path, save_path, threshold, device, sam_masker=None)
     infer_time = time.time() - t0
 
     anomaly_map = masks[0]  # (H, W) numpy array
+
+    # SAM 마스크로 배경+경계 영역의 anomaly score를 0으로 제거
+    if sam_masker is not None:
+        _, obj_mask = sam_masker.mask_background(original_np)
+        if obj_mask.shape != anomaly_map.shape:
+            obj_mask = cv2.resize(obj_mask.astype(np.uint8),
+                                  (anomaly_map.shape[1], anomaly_map.shape[0]),
+                                  interpolation=cv2.INTER_NEAREST).astype(bool)
+        anomaly_map[~obj_mask] = 0
 
     save_result_image(original_np, anomaly_map, save_path, threshold=threshold)
     print(f"  {os.path.basename(img_path):30s} score={scores[0]:.4f}  infer={infer_time:.3f}s → {save_path}")
