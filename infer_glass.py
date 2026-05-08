@@ -1,0 +1,144 @@
+"""
+GLASS 체크포인트(ckpt_best_9.pth)로 추론 → save_result_image 시각화
+
+사용법:
+    python infer_glass.py
+    python infer_glass.py --image data/glass_format/spot/test/bad/frame_0051.png
+    python infer_glass.py --threshold 0.5
+"""
+import os
+import sys
+import argparse
+import glob
+import time
+import numpy as np
+from PIL import Image
+import torch
+from torchvision import transforms
+
+# spot_catcher의 utils를 먼저 import (GLASS의 utils와 충돌 방지)
+from utils.visual import save_result_image
+from utils.preprocessing import SAMMasker
+
+# GLASS 프로젝트 모듈 import
+GLASS_DIR = r"C:\Users\User\github\GLASS"
+sys.path.insert(0, GLASS_DIR)
+
+import backbones
+from glass import GLASS
+
+# run-spot.sh 기준 설정
+CKPT_PATH = os.path.join(os.path.dirname(__file__), "saved_models", "ckpt.pth")
+TEST_BAD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "bad")
+TEST_GOOD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "good")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "static", "glass_results")
+
+# GLASS run-spot.sh 파라미터
+IMAGESIZE_H = 720
+IMAGESIZE_W = 1280
+BACKBONE_NAME = "wideresnet50"
+LAYERS = ["layer2", "layer3"]
+PRETRAIN_EMBED_DIM = 1536
+TARGET_EMBED_DIM = 1536
+PATCHSIZE = 3
+DSC_LAYERS = 2
+DSC_HIDDEN = 1024
+PRE_PROJ = 1
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
+
+def build_model(device):
+    backbone = backbones.load(BACKBONE_NAME)
+    model = GLASS(device)
+    model.load(
+        backbone=backbone,
+        layers_to_extract_from=LAYERS,
+        device=device,
+        input_shape=(3, IMAGESIZE_H, IMAGESIZE_W),
+        pretrain_embed_dimension=PRETRAIN_EMBED_DIM,
+        target_embed_dimension=TARGET_EMBED_DIM,
+        patchsize=PATCHSIZE,
+        dsc_layers=DSC_LAYERS,
+        dsc_hidden=DSC_HIDDEN,
+        pre_proj=PRE_PROJ,
+    )
+
+    state_dict = torch.load(CKPT_PATH, map_location=device)
+    model.discriminator.load_state_dict(state_dict["discriminator"])
+    if "pre_projection" in state_dict:
+        model.pre_projection.load_state_dict(state_dict["pre_projection"])
+    print(f"[OK] GLASS 체크포인트 로드: {CKPT_PATH}")
+    return model
+
+
+def get_transform():
+    return transforms.Compose([
+        transforms.Resize((IMAGESIZE_H, IMAGESIZE_W)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+    ])
+
+
+def infer_single(model, img_path, save_path, threshold, device, sam_masker=None):
+    transform = get_transform()
+
+    pil_img = Image.open(img_path).convert("RGB")
+    original_np = np.array(pil_img.resize((IMAGESIZE_W, IMAGESIZE_H)))
+
+    # SAM 배경 제거
+    if sam_masker is not None:
+        masked_np, _ = sam_masker.mask_background(original_np)
+        pil_img = Image.fromarray(masked_np)
+
+    tensor = transform(pil_img).unsqueeze(0).to(device)
+
+    t0 = time.time()
+    scores, masks = model._predict(tensor)
+    infer_time = time.time() - t0
+
+    anomaly_map = masks[0]  # (H, W) numpy array
+
+    save_result_image(original_np, anomaly_map, save_path, threshold=threshold)
+    print(f"  {os.path.basename(img_path):30s} score={scores[0]:.4f}  infer={infer_time:.3f}s → {save_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--image", type=str, default=None, help="단일 이미지 경로")
+    parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--gpu", type=int, default=0)
+    args = parser.parse_args()
+
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
+
+    model = build_model(device)
+    sam_masker = SAMMasker(device=device)
+    print("[OK] SAM 마스커 로드 완료")
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    if args.image:
+        name = os.path.splitext(os.path.basename(args.image))[0]
+        save_path = os.path.join(OUTPUT_DIR, f"{name}_result.png")
+        infer_single(model, args.image, save_path, args.threshold, device, sam_masker)
+    else:
+        valid_ext = (".jpg", ".jpeg", ".png", ".bmp", ".tiff")
+        for label, folder in [("bad", TEST_BAD_DIR), ("good", TEST_GOOD_DIR)]:
+            if not os.path.isdir(folder):
+                print(f"[WARN] 폴더 없음: {folder}")
+                continue
+            files = sorted(f for f in os.listdir(folder) if f.lower().endswith(valid_ext))
+            print(f"\n[{label}] {len(files)}장 추론 중...")
+            for f in files:
+                img_path = os.path.join(folder, f)
+                name = os.path.splitext(f)[0]
+                save_path = os.path.join(OUTPUT_DIR, f"{label}_{name}_result.png")
+                infer_single(model, img_path, save_path, args.threshold, device, sam_masker)
+
+    print(f"\n결과 저장 폴더: {OUTPUT_DIR}")
+
+
+if __name__ == "__main__":
+    main()

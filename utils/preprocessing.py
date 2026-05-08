@@ -78,6 +78,10 @@ class SAMMasker:
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
         mask_uint8 = cv2.morphologyEx(mask_uint8, cv2.MORPH_OPEN, kernel)
         mask_uint8 = cv2.morphologyEx(mask_uint8, cv2.MORPH_CLOSE, kernel)
+
+        # 경계면 침식 (erosion) - 경계 부분을 안쪽으로 줄여 경계면 오탐 방지
+        erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (30, 30))
+        mask_uint8 = cv2.erode(mask_uint8, erode_kernel, iterations=1)
         mask = mask_uint8 > 0
 
         # 배경을 검정으로
