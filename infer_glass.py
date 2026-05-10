@@ -29,14 +29,14 @@ import backbones
 from glass import GLASS
 
 # run-spot.sh 기준 설정
-CKPT_PATH = os.path.join(os.path.dirname(__file__), "saved_models", "ckpt.pth")
-TEST_BAD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "bad")
-TEST_GOOD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "good")
+CKPT_PATH = os.path.join(os.path.dirname(__file__), "saved_models", "ckpt_best_186.pth")
+TEST_BAD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "bad", "테스트")
+TEST_GOOD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "good", "real")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "static", "glass_results")
 
 # GLASS run-spot.sh 파라미터
-IMAGESIZE_H = 720
-IMAGESIZE_W = 1280
+IMAGESIZE_H = 1080
+IMAGESIZE_W = 1920
 BACKBONE_NAME = "wideresnet50"
 LAYERS = ["layer2", "layer3"]
 PRETRAIN_EMBED_DIM = 1536
@@ -48,6 +48,22 @@ PRE_PROJ = 1
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
+
+
+class CLAHE:
+    """CLAHE 전처리 transform (PIL Image → PIL Image)"""
+    def __init__(self, clip_limit=2.0, tile_grid_size=(8, 8)):
+        self.clip_limit = clip_limit
+        self.tile_grid_size = tile_grid_size
+
+    def __call__(self, img):
+        img_np = np.array(img)
+        lab = cv2.cvtColor(img_np, cv2.COLOR_RGB2LAB)
+        clahe = cv2.createCLAHE(clipLimit=self.clip_limit, tileGridSize=self.tile_grid_size)
+        lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+        result = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+        from PIL import Image as _Image
+        return _Image.fromarray(result)
 
 
 def build_model(device):
@@ -77,6 +93,7 @@ def build_model(device):
 def get_transform():
     return transforms.Compose([
         transforms.Resize((IMAGESIZE_H, IMAGESIZE_W)),
+        CLAHE(clip_limit=2.0, tile_grid_size=(8, 8)),
         transforms.ToTensor(),
         transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
     ])
@@ -106,13 +123,13 @@ def infer_single(model, img_path, save_path, threshold, device, sam_masker=None)
         anomaly_map[~obj_mask] = 0
 
     save_result_image(original_np, anomaly_map, save_path, threshold=threshold)
-    print(f"  {os.path.basename(img_path):30s} score={scores[0]:.4f}  infer={infer_time:.3f}s → {save_path}")
+    print(f"  {os.path.basename(img_path):30s} score={scores[0]:.4f}  map_max={anomaly_map.max():.4f}  map_mean={anomaly_map.mean():.4f}  infer={infer_time:.3f}s → {save_path}")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--image", type=str, default=None, help="단일 이미지 경로")
-    parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--threshold", type=float, default=0.25)
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
