@@ -30,7 +30,7 @@ import uvicorn
 from config import STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT, ANOMALY_THRESHOLD
 from models.glass_detector import GlassDetector
 from models.sam_masker import SAMMasker
-from utils.visualization import make_heatmap, save_heatmap
+from utils.visualization import make_single_overlay, save_single_overlay
 from database import save_defect, get_defects, get_defect_stats, delete_defect
 
 # ========================================
@@ -123,13 +123,13 @@ async def detect(file: UploadFile = File(...)):
         if is_anomaly:
             rid = str(uuid.uuid4())[:8]
             Image.fromarray(original_np).save(os.path.join(STATIC_DIR, f"cam_{rid}.png"))
-            save_heatmap(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
+            save_single_overlay(original_np, anomaly_map, os.path.join(STATIC_DIR, f"cam_ov_{rid}.png"))
             original_url = f"/static/cam_{rid}.png"
             overlay_url = f"/static/cam_ov_{rid}.png"
         else:
-            heatmap_np = make_heatmap(original_np, anomaly_map)
+            overlay_np = make_single_overlay(original_np, anomaly_map)
             original_url = _to_data_uri(original_np)
-            overlay_url = _to_data_uri(heatmap_np)
+            overlay_url = _to_data_uri(overlay_np)
 
         saved = False
         if is_anomaly:
