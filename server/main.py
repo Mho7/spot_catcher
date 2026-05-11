@@ -6,7 +6,7 @@ FastAPI 백엔드 서버 (데스크톱/GPU 서버에서 실행)
 
 제공 API:
     GET  /health                    - 서버 상태 확인
-    POST /detect                    - 이미지 업로드 → 탐지 결과 반환  ← 클라이언트가 주로 사용
+    POST /detect                    - 이미지 업로드 → GLASS 탐지 결과 반환  ← 클라이언트가 주로 사용
     GET  /defects                   - 결함 목록 조회
     GET  /defects/stats             - 결함 통계
     DELETE /defects/{id}            - 결함 삭제
@@ -20,16 +20,15 @@ import numpy as np
 from PIL import Image
 import cv2
 
-from fastapi import FastAPI, Form, File, UploadFile
+from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 import uvicorn
 
-from config import IMAGE_SIZE, STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT, ANOMALY_THRESHOLD
-from models.patchcore import PatchCore
-from utils.dataset import get_default_transform
+from config import STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT, ANOMALY_THRESHOLD
+from models.glass_detector import GlassDetector
 from utils.visualization import make_heatmap, save_heatmap
 from database import save_defect, get_defects, get_defect_stats, delete_defect
 
@@ -62,17 +61,14 @@ async def index():
 
 
 # ========================================
-# 모델 로드
+# GLASS 모델 로드
 # ========================================
-patchcore_model = None
+glass_detector = None
 try:
-    patchcore_model = PatchCore()
-    patchcore_model.load()
-    print("PatchCore 모델 로드 완료")
+    glass_detector = GlassDetector()
+    print(f"GLASS 모델 로드 완료: {glass_detector.checkpoint_path}")
 except Exception as e:
-    print(f"PatchCore 모델 로드 실패: {e}")
-
-pc_transform = get_default_transform()
+    print(f"GLASS 모델 로드 실패: {e}")
 
 
 # ========================================
@@ -94,7 +90,7 @@ async def detect(file: UploadFile = File(...)):
         saved_to_db   : DB 저장 여부
     """
     try:
-        if patchcore_model is None or patchcore_model.memory_bank is None:
+        if glass_detector is None:
             return JSONResponse(status_code=503, content={"error": "모델이 아직 준비되지 않았습니다."})
 
         contents = await file.read()
@@ -105,11 +101,9 @@ async def detect(file: UploadFile = File(...)):
 
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(frame_rgb)
-        original_np = np.array(pil_image.resize(IMAGE_SIZE[::-1]))  # PIL은 (W,H), IMAGE_SIZE는 (H,W)
 
-        tensor = pc_transform(pil_image)
         start = time.time()
-        score, anomaly_map = patchcore_model.predict(tensor)
+        score, anomaly_map, original_np = glass_detector.predict(pil_image)
         infer_time = time.time() - start
 
         is_anomaly = score > ANOMALY_THRESHOLD
@@ -129,7 +123,7 @@ async def detect(file: UploadFile = File(...)):
         if is_anomaly:
             try:
                 saved = save_defect(
-                    source="client_camera", model_type="patchcore", anomaly_score=float(score),
+                    source="client_camera", model_type="glass", anomaly_score=float(score),
                     inference_time=infer_time,
                     original_url=original_url, overlay_url=overlay_url,
                 )
@@ -138,7 +132,7 @@ async def detect(file: UploadFile = File(...)):
 
         return JSONResponse(content={
             "success": True,
-            "model": "patchcore",
+            "model": "glass",
             "anomaly_score": round(float(score), 4),
             "is_anomaly": bool(is_anomaly),
             "verdict": "결함 탐지" if is_anomaly else "정상",
@@ -179,8 +173,9 @@ async def defects_stats():
 async def health():
     return {
         "status": "running",
-        "device": str(patchcore_model.device) if patchcore_model else "N/A",
-        "patchcore_ready": patchcore_model is not None and patchcore_model.memory_bank is not None,
+        "device": str(glass_detector.device) if glass_detector else "N/A",
+        "glass_ready": glass_detector is not None,
+        "checkpoint": glass_detector.checkpoint_path if glass_detector else None,
     }
 
 

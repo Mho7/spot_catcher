@@ -19,7 +19,7 @@ def init_db():
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp   TEXT    NOT NULL,
             source      TEXT    NOT NULL,  -- 'upload' or 'camera'
-            model_type  TEXT    NOT NULL,  -- 'patchcore'
+            model_type  TEXT    NOT NULL,  -- 'glass'
             filename    TEXT,              -- 업로드 파일명 (카메라는 NULL)
             anomaly_score   REAL  NOT NULL,
             inference_time  REAL,

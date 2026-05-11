@@ -1119,10 +1119,10 @@
 
                         {/* 모델 상태 원형 */}
                         <div className="model-status-wrap"
-                            title={failed ? "서버 오프라인" : health?.patchcore_ready ? `디바이스: ${health.device} · 준비됨` : "모델 준비 중..."}>
+                            title={failed ? "서버 오프라인" : health?.glass_ready ? `디바이스: ${health.device} · 준비됨` : "모델 준비 중..."}>
                             <div className="model-circle">
                                 <div className="model-circle-inner" style={{
-                                    background: failed ? "#e04444" : health?.patchcore_ready ? "#c8a0a8" : "#e0c060"
+                                    background: failed ? "#e04444" : health?.glass_ready ? "#c8a0a8" : "#e0c060"
                                 }} />
                             </div>
                             <span className="model-label">model</span>
@@ -1154,7 +1154,7 @@
                 }
             }, [camReady]);
 
-            const canScan = health?.patchcore_ready && !failed && !loading && camReady;
+            const canScan = health?.glass_ready && !failed && !loading && camReady;
 
             const runScan = async () => {
                 setLoading(true); setError(null);
@@ -1202,8 +1202,8 @@
                     </div>
 
                     <div className="scan-outer">
-                        {health && !health.patchcore_ready && (
-                            <p className="error-msg" style={{ marginBottom: 12 }}>현재 모델 미구현</p>
+                        {health && !health.glass_ready && (
+                            <p className="error-msg" style={{ marginBottom: 12 }}>GLASS 모델 준비 중</p>
                         )}
                         <button
                             className="scan-btn"
