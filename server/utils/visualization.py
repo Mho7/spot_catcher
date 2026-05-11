@@ -9,13 +9,13 @@ from config import OVERLAY_THRESHOLD
 
 
 def make_heatmap(original_image, anomaly_map):
-    """anomaly_map을 HOT 컬러맵으로 변환한 순수 히트맵 이미지 반환 (numpy RGB array)"""
+    """anomaly_map을 JET 컬러맵으로 변환한 순수 히트맵 이미지 반환 (numpy RGB array)"""
     h, w = original_image.shape[:2]
     if anomaly_map.shape != (h, w):
         anomaly_map = cv2.resize(anomaly_map, (w, h), interpolation=cv2.INTER_LINEAR)
 
-    norm = cv2.normalize(anomaly_map, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-    heatmap_bgr = cv2.applyColorMap(norm, cv2.COLORMAP_HOT)
+    scaled = (np.clip(anomaly_map, 0.0, 1.0) * 255).astype(np.uint8)
+    heatmap_bgr = cv2.applyColorMap(scaled, cv2.COLORMAP_JET)
     return cv2.cvtColor(heatmap_bgr, cv2.COLOR_BGR2RGB)
 
 

@@ -51,13 +51,14 @@ def find_glass_checkpoint(path=None, save_dir=SAVE_DIR):
 
 
 class GlassDetector:
-    def __init__(self, checkpoint_path=None, device=None):
+    def __init__(self, checkpoint_path=None, device=None, sam_masker=None):
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device(device)
         self.checkpoint_path = find_glass_checkpoint(checkpoint_path)
         self.model = self._build_model()
         self.transform = self._build_transform()
+        self.sam_masker = sam_masker
 
     def _build_model(self):
         height, width = GLASS_INPUT_SIZE
@@ -103,4 +104,14 @@ class GlassDetector:
         original_np = np.array(pil_image.resize((width, height)))
         tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
         scores, masks = self.model._predict(tensor)
-        return float(scores[0]), np.array(masks[0]), original_np
+        score = float(scores[0])
+        anomaly_map = np.array(masks[0])
+
+        if self.sam_masker is not None:
+            try:
+                anomaly_map, _ = self.sam_masker.apply_to_anomaly_map(anomaly_map, original_np)
+                score = float(anomaly_map.max())
+            except Exception as exc:
+                print(f"[WARN] SAM 마스킹 실패, 원본 결과 사용: {exc}")
+
+        return score, anomaly_map, original_np

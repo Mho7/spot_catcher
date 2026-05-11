@@ -29,6 +29,7 @@ import uvicorn
 
 from config import STATIC_DIR, BASE_DIR, SERVER_HOST, SERVER_PORT, ANOMALY_THRESHOLD
 from models.glass_detector import GlassDetector
+from models.sam_masker import SAMMasker
 from utils.visualization import make_heatmap, save_heatmap
 from database import save_defect, get_defects, get_defect_stats, delete_defect
 
@@ -61,11 +62,22 @@ async def index():
 
 
 # ========================================
+# SAM 마스커 로드 (배경 anomaly 제거용)
+# ========================================
+sam_masker = None
+try:
+    sam_masker = SAMMasker()
+    print("SAM 마스커 로드 완료")
+except Exception as e:
+    print(f"SAM 마스커 로드 실패: {e}")
+
+
+# ========================================
 # GLASS 모델 로드
 # ========================================
 glass_detector = None
 try:
-    glass_detector = GlassDetector()
+    glass_detector = GlassDetector(sam_masker=sam_masker)
     print(f"GLASS 모델 로드 완료: {glass_detector.checkpoint_path}")
 except Exception as e:
     print(f"GLASS 모델 로드 실패: {e}")
@@ -176,6 +188,7 @@ async def health():
         "device": str(glass_detector.device) if glass_detector else "N/A",
         "glass_ready": glass_detector is not None,
         "checkpoint": glass_detector.checkpoint_path if glass_detector else None,
+        "sam_ready": sam_masker is not None,
     }
 
 
