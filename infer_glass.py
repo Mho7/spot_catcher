@@ -29,7 +29,7 @@ import backbones
 from glass import GLASS
 
 # run-spot.sh 기준 설정
-CKPT_PATH = os.path.join(os.path.dirname(__file__), "saved_models", "ckpt_best_186.pth")
+CKPT_PATH = os.path.join(os.path.dirname(__file__), "saved_models", "ckpt_best_37.pth")
 TEST_BAD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "bad", "테스트")
 TEST_GOOD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "good", "real")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "static", "glass_results")
