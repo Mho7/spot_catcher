@@ -11,10 +11,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 SAVE_DIR = os.path.join(ROOT_DIR, "saved_models")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+GENERATED_STATIC_DIR = os.path.join(STATIC_DIR, "generated")
 
 # 저장 폴더 자동 생성
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(GENERATED_STATIC_DIR, exist_ok=True)
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]

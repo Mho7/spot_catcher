@@ -16,6 +16,7 @@ scipy>=1.11.0
 matplotlib>=3.7.0
 tqdm>=4.65.0
 timm>=0.9.12
+segment-anything>=1.0
 pandas>=1.5.0
 scikit-image>=0.22.0
 tensorboard>=2.15.0

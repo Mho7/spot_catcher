@@ -94,7 +94,7 @@ python main.py
 | GET | `/defects/stats` | 결함 통계 |
 | DELETE | `/defects/{id}` | 결함 삭제 |
 
-`/detect`는 카메라 이미지를 업로드받아 GLASS score/map을 계산한다. 결함으로 판정되면 이미지를 `server/static/`에 저장하고 DB에 기록하며, 정상이면 base64 data URI로 즉시 반환한다.
+`/detect`는 카메라 이미지를 업로드받아 GLASS score/map을 계산한다. 결함으로 판정되면 이미지를 `server/static/generated/`에 저장하고 DB에 기록하며, 정상이면 base64 data URI로 즉시 반환한다.
 
 ## 자주 발생하는 문제
 
