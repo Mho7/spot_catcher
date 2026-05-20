@@ -7,6 +7,7 @@ venv/
 # 모델 / 데이터 (용량 크거나 로컬 전용)
 data/
 *.db
+saved_models/*.pth
 
 # 런타임 생성 파일
 static/glass_results/
