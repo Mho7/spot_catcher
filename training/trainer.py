@@ -14,8 +14,26 @@ from config import (
     GLASS_PRETRAIN_EMBED_DIM, GLASS_TARGET_EMBED_DIM,
     GLASS_PATCHSIZE, GLASS_DSC_LAYERS, GLASS_DSC_HIDDEN, GLASS_PRE_PROJ,
 )
-from models.glass_detector import find_glass_checkpoint
-from vendor.glass import GLASS, backbones
+
+# 루트 모듈 참조 (삭제된 server/vendor/glass 대체)
+ROOT_DIR = os.path.join(os.path.dirname(__file__), "..")
+sys.path.insert(0, ROOT_DIR)
+from glass import GLASS
+import backbones
+
+
+def find_glass_checkpoint(path=None, save_dir=SAVE_DIR):
+    if path:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"GLASS 체크포인트가 없습니다: {path}")
+        return path
+    candidates = glob.glob(os.path.join(save_dir, "ckpt_best_*.pth"))
+    if not candidates:
+        raise FileNotFoundError(f"GLASS 체크포인트가 없습니다: {save_dir}/ckpt_best_*.pth")
+    def _ep(p):
+        m = re.search(r"ckpt_best_(\d+)\.pth", os.path.basename(p))
+        return int(m.group(1)) if m else 0
+    return max(candidates, key=_ep)
 
 
 def _current_max_epoch():

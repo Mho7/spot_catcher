@@ -7,11 +7,9 @@ desktop 브랜치의 database.py를 오염시키지 않기 위해 별도 모듈�
 import contextlib
 import sqlite3
 import os
-import sys
 from datetime import datetime
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "server"))
-from database import DB_PATH
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "server", "defects.db")
 
 
 def init_training_tables():

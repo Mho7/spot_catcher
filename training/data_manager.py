@@ -6,7 +6,7 @@ import random
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "server"))
 from config import STATIC_DIR
-from database import register_images, get_unused_images
+from db_training import register_images, get_unused_images
 
 NORMAL_PREFIX = "normal_"
 DEFECT_PREFIX = "cam_"

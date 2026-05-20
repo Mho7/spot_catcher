@@ -9,8 +9,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "server"))
-from vendor.glass.perlin import generate_thr
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from perlin import generate_thr
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD  = [0.229, 0.224, 0.225]
