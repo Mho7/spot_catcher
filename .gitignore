@@ -5,7 +5,6 @@ venv/
 .env
 
 # 모델 / 데이터 (용량 크거나 로컬 전용)
-saved_models/
 data/
 *.db
 
