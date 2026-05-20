@@ -20,6 +20,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
+<<<<<<< HEAD
 from config import (
     GLASS_BACKBONE,
     GLASS_DSC_HIDDEN,
@@ -38,6 +39,39 @@ from config import (
     IMAGENET_STD,
     SAVE_DIR,
 )
+=======
+# spot_catcher의 utils를 먼저 import (GLASS의 utils와 충돌 방지)
+from utils.visual import save_result_image
+from utils.preprocessing import SAMMasker
+
+# GLASS 프로젝트 모듈 import
+GLASS_DIR = r"C:\Users\User\github\GLASS"
+sys.path.insert(0, GLASS_DIR)
+
+import backbones
+from glass import GLASS
+
+# run-spot.sh 기준 설정
+CKPT_PATH = os.path.join(os.path.dirname(__file__), "saved_models", "ckpt_best_37.pth")
+TEST_BAD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "bad", "테스트")
+TEST_GOOD_DIR = os.path.join(os.path.dirname(__file__), "data", "glass_format", "spot", "test", "good", "real")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "static", "glass_results")
+
+# GLASS run-spot.sh 파라미터
+IMAGESIZE_H = 1080
+IMAGESIZE_W = 1920
+BACKBONE_NAME = "wideresnet50"
+LAYERS = ["layer2", "layer3"]
+PRETRAIN_EMBED_DIM = 1536
+TARGET_EMBED_DIM = 1536
+PATCHSIZE = 3
+DSC_LAYERS = 2
+DSC_HIDDEN = 1024
+PRE_PROJ = 1
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+>>>>>>> c274989160b7f55de382aec5a6c7e49114cbd6f1
 
 
 class CLAHE:
