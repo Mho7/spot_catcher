@@ -5,12 +5,11 @@ venv/
 .env
 
 # 모델 / 데이터 (용량 크거나 로컬 전용)
-saved_models/
 data/
 *.db
 
 # 런타임 생성 파일
-static/patchcore_results/
+static/glass_results/
 
 # 기타
 .DS_Store
@@ -18,3 +17,5 @@ Thumbs.db
 
 *.ckpt
 results/
+images/
+glass_format/
