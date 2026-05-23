@@ -24,23 +24,49 @@ def _transform(h, w):
     ])
 
 
+def _mask_transform(h, w):
+    return transforms.Compose([
+        transforms.Resize((h, w), interpolation=transforms.InterpolationMode.NEAREST),
+        transforms.ToTensor(),
+    ])
+
+
 class NormalImageDataset(Dataset):
-    """학습용: 정상 이미지 + Perlin 합성 이상 생성."""
+    """학습용: 정상 이미지 + Perlin 합성 이상 생성. 실제 결함 주입 지원."""
     distribution = 3  # hypersphere — 분포 판단 단계 건너뜀
 
-    def __init__(self, image_paths, input_size=(1080, 1920)):
+    def __init__(self, image_paths, input_size=(1080, 1920),
+                 defect_paths=None, defect_mask_paths=None, inject_prob=1/32):
         self.paths = list(image_paths)
         h, w = input_size
         self.feat_h, self.feat_w = h // 8, w // 8
         self.tf = _transform(h, w)
+        self.mask_tf = _mask_transform(h, w)
+        self.defect_paths = list(defect_paths) if defect_paths else []
+        self.defect_mask_paths = list(defect_mask_paths) if defect_mask_paths else []
+        self.inject_prob = inject_prob if self.defect_paths else 0
 
     def __len__(self):
         return len(self.paths)
 
     def __getitem__(self, idx):
         img_t = self.tf(Image.open(self.paths[idx]).convert("RGB"))
-        aug_t, mask_s = self._synthesize(img_t)
+        if random.random() < self.inject_prob:
+            aug_t, mask_s = self._load_real_defect()
+        else:
+            aug_t, mask_s = self._synthesize(img_t)
         return {"image": img_t, "aug": aug_t, "mask_s": mask_s}
+
+    def _load_real_defect(self):
+        di = random.randrange(len(self.defect_paths))
+        aug_t = self.tf(Image.open(self.defect_paths[di]).convert("RGB"))
+        mask = self.mask_tf(Image.open(self.defect_mask_paths[di]).convert("L"))
+        mask = (mask > 0.5).float().squeeze(0)
+        mask_s = F.max_pool2d(
+            mask.unsqueeze(0).unsqueeze(0),
+            kernel_size=(mask.shape[0] // self.feat_h, mask.shape[1] // self.feat_w),
+        ).squeeze().float()
+        return aug_t, mask_s
 
     def _synthesize(self, img_t):
         C, H, W = img_t.shape

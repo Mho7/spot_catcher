@@ -38,7 +38,11 @@ def run(meta_epochs=100, batch_size=4, force=False):
     print(f"[파이프라인] run_id={run_id}, 학습={len(split['train_normal'])}, "
           f"val 정상={len(split['val_normal'])}, val 결함={len(split['val_defect'])}")
 
-    train_ds = NormalImageDataset(split["train_normal"], input_size=GLASS_INPUT_SIZE)
+    train_ds = NormalImageDataset(
+        split["train_normal"], input_size=GLASS_INPUT_SIZE,
+        defect_paths=split.get("train_defect"),
+        defect_mask_paths=split.get("train_defect_mask"),
+    )
     eval_ds  = EvalDataset(split["val_normal"], split["val_defect"], input_size=GLASS_INPUT_SIZE)
 
     result = run_finetune(train_ds, eval_ds, run_id=run_id,

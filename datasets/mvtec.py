@@ -85,6 +85,7 @@ class MVTecDataset(torch.utils.data.Dataset):
             downsampling=8,
             scale=0,
             batch_size=8,
+            inject_prob=1/32,
             **kwargs,
     ):
         """
@@ -101,10 +102,21 @@ class MVTecDataset(torch.utils.data.Dataset):
                    data should be used. Has to be an option taken from
                    DatasetSplit, e.g. mvtec.DatasetSplit.TRAIN. Note that
                    mvtec.DatasetSplit.TEST will also load mask data.
+            inject_prob: [float]. Probability of injecting a real defect
+                         image instead of Perlin synthesis during training.
         """
         super().__init__()
         self.source = source
         self.split = split
+        self.inject_prob = inject_prob
+        self._h_flip_p = h_flip_p
+        self._v_flip_p = v_flip_p
+        self._gray_p = gray_p
+        self._rotate_degrees = rotate_degrees
+        self._translate = translate
+        self._scale = scale
+        self._clahe = CLAHE(clip_limit=2.0, tile_grid_size=(8, 8))
+        self._color_jitter = transforms.ColorJitter(brightness_factor, contrast_factor, saturation_factor)
         self.batch_size = batch_size
         self.distribution = distribution
         self.mean = mean
@@ -144,6 +156,18 @@ class MVTecDataset(torch.utils.data.Dataset):
         self.imgpaths_per_class, self.data_to_iterate = self.get_image_data()
         self.anomaly_source_paths = sorted(1 * glob.glob(anomaly_source_path + "/*/*.jpg") +
                                            0 * list(next(iter(self.imgpaths_per_class.values())).values())[0])
+
+        # 실제 결함 이미지 + 마스크 쌍 수집 (TRAIN 시 주입용)
+        self.real_defect_pairs = []
+        if self.split == DatasetSplit.TRAIN and self.inject_prob > 0:
+            test_bad_dir = os.path.join(self.source, self.classname, "test", "bad")
+            gt_bad_dir = os.path.join(self.source, self.classname, "ground_truth", "bad")
+            if os.path.isdir(test_bad_dir) and os.path.isdir(gt_bad_dir):
+                for fname in sorted(os.listdir(test_bad_dir)):
+                    img_p = os.path.join(test_bad_dir, fname)
+                    mask_p = os.path.join(gt_bad_dir, fname)
+                    if os.path.isfile(mask_p):
+                        self.real_defect_pairs.append((img_p, mask_p))
 
         self.transform_img = [
             transforms.Resize(self.resize),
@@ -197,6 +221,46 @@ class MVTecDataset(torch.utils.data.Dataset):
         transform_aug = transforms.Compose(transform_aug)
         return transform_aug
 
+    def _transform_defect_pair(self, img_pil, mask_pil):
+        """결함 이미지와 마스크에 동일한 공간 변환을 동기화하여 적용."""
+        F = transforms.functional
+        # Resize
+        img = F.resize(img_pil, self.resize)
+        mask = F.resize(mask_pil, self.resize,
+                        interpolation=transforms.InterpolationMode.NEAREST)
+        # CLAHE, ColorJitter (image only)
+        img = self._clahe(img)
+        img = self._color_jitter(img)
+        # RandomHorizontalFlip (synced)
+        if np.random.random() < self._h_flip_p:
+            img = F.hflip(img)
+            mask = F.hflip(mask)
+        # RandomVerticalFlip (synced)
+        if np.random.random() < self._v_flip_p:
+            img = F.vflip(img)
+            mask = F.vflip(mask)
+        # RandomGrayscale (image only)
+        if np.random.random() < self._gray_p:
+            img = F.rgb_to_grayscale(img, num_output_channels=3)
+        # RandomAffine (synced)
+        img_size = [img.size[1], img.size[0]]
+        angle, trans, scale, shear = transforms.RandomAffine.get_params(
+            degrees=(-self._rotate_degrees, self._rotate_degrees),
+            translate=(self._translate, self._translate) if self._translate else None,
+            scale_ranges=(1.0 - self._scale, 1.0 + self._scale) if self._scale else None,
+            shears=None, img_size=img_size)
+        img = F.affine(img, angle, trans, scale, shear,
+                       interpolation=transforms.InterpolationMode.BILINEAR)
+        mask = F.affine(mask, angle, trans, scale, shear,
+                        interpolation=transforms.InterpolationMode.NEAREST)
+        # CenterCrop
+        img = F.center_crop(img, self.imgsize)
+        mask = F.center_crop(mask, self.imgsize)
+        # ToTensor + Normalize
+        img = F.normalize(F.to_tensor(img), IMAGENET_MEAN, IMAGENET_STD)
+        mask = F.to_tensor(mask)
+        return img, mask
+
     def __getitem__(self, idx):
         classname, anomaly, image_path, mask_path = self.data_to_iterate[idx]
         image = PIL.Image.open(image_path).convert("RGB")
@@ -204,26 +268,46 @@ class MVTecDataset(torch.utils.data.Dataset):
 
         mask_fg = mask_s = aug_image = torch.tensor([1])
         if self.split == DatasetSplit.TRAIN:
-            aug = PIL.Image.open(np.random.choice(self.anomaly_source_paths)).convert("RGB")
-            if self.rand_aug:
-                transform_aug = self.rand_augmenter()
-                aug = transform_aug(aug)
+            use_real = (self.real_defect_pairs
+                        and np.random.random() < self.inject_prob)
+
+            if use_real:
+                # 실제 결함 이미지 + 바이너리 마스크 주입 (공간 변환 동기화)
+                di = np.random.randint(len(self.real_defect_pairs))
+                defect_img_path, defect_mask_path = self.real_defect_pairs[di]
+                aug_image, defect_mask = self._transform_defect_pair(
+                    PIL.Image.open(defect_img_path).convert("RGB"),
+                    PIL.Image.open(defect_mask_path).convert("L"))
+                feat_size = (self.imgsize_h // self.downsampling,
+                             self.imgsize_w // self.downsampling)
+                mask_s = torch.ceil(defect_mask[0])
+                mask_s = torch.nn.functional.max_pool2d(
+                    mask_s.unsqueeze(0).unsqueeze(0),
+                    kernel_size=(self.imgsize_h // feat_size[0],
+                                 self.imgsize_w // feat_size[1]),
+                ).squeeze()
             else:
-                aug = self.transform_img(aug)
+                # 기존 Perlin 합성
+                aug = PIL.Image.open(np.random.choice(self.anomaly_source_paths)).convert("RGB")
+                if self.rand_aug:
+                    transform_aug = self.rand_augmenter()
+                    aug = transform_aug(aug)
+                else:
+                    aug = self.transform_img(aug)
 
-            if self.class_fg:
-                fgmask_path = image_path.split(classname)[0] + 'fg_mask/' + classname + '/' + os.path.split(image_path)[-1]
-                mask_fg = PIL.Image.open(fgmask_path)
-                mask_fg = torch.ceil(self.transform_mask(mask_fg)[0])
+                if self.class_fg:
+                    fgmask_path = image_path.split(classname)[0] + 'fg_mask/' + classname + '/' + os.path.split(image_path)[-1]
+                    mask_fg = PIL.Image.open(fgmask_path)
+                    mask_fg = torch.ceil(self.transform_mask(mask_fg)[0])
 
-            feat_size = (self.imgsize_h // self.downsampling, self.imgsize_w // self.downsampling)
-            mask_all = perlin_mask(image.shape, feat_size, 0, 6, mask_fg, 1)
-            mask_s = torch.from_numpy(mask_all[0])
-            mask_l = torch.from_numpy(mask_all[1])
+                feat_size = (self.imgsize_h // self.downsampling, self.imgsize_w // self.downsampling)
+                mask_all = perlin_mask(image.shape, feat_size, 0, 6, mask_fg, 1)
+                mask_s = torch.from_numpy(mask_all[0])
+                mask_l = torch.from_numpy(mask_all[1])
 
-            beta = np.random.normal(loc=self.mean, scale=self.std)
-            beta = np.clip(beta, .2, .8)
-            aug_image = image * (1 - mask_l) + (1 - beta) * aug * mask_l + beta * image * mask_l
+                beta = np.random.normal(loc=self.mean, scale=self.std)
+                beta = np.clip(beta, .2, .8)
+                aug_image = image * (1 - mask_l) + (1 - beta) * aug * mask_l + beta * image * mask_l
 
         if self.split == DatasetSplit.TEST and mask_path is not None:
             mask_gt = PIL.Image.open(mask_path).convert('L')
