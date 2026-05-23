@@ -525,38 +525,6 @@
             box-shadow: none;
         }
 
-        /* ── 원형 모델 상태 ── */
-        .model-status-wrap {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            margin-top: 20px;
-        }
-
-        .model-circle {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.75);
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .model-circle-inner {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-        }
-
-        .model-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: #888;
-        }
-
         /* ── Storage 레이아웃 ── */
         .storage-layout {
             display: flex;
@@ -1085,16 +1053,6 @@
                             </>
                         )}
 
-                        {/* 모델 상태 원형 */}
-                        <div className="model-status-wrap"
-                            title={failed ? "서버 오프라인" : health?.glass_ready ? `디바이스: ${health.device} · 준비됨` : "모델 준비 중..."}>
-                            <div className="model-circle">
-                                <div className="model-circle-inner" style={{
-                                    background: failed ? "#e04444" : health?.glass_ready ? "#c8a0a8" : "#e0c060"
-                                }} />
-                            </div>
-                            <span className="model-label">model</span>
-                        </div>
                     </div>
                 </div>
             );
@@ -1303,7 +1261,7 @@
                                 </div>
                             </div>
                             <div className="search-filter-row">
-                                <span className="search-filter-label">결함률 (%)</span>
+                                <span className="search-filter-label">불량률 (%)</span>
                                 <div className="search-filter-inputs">
                                     <input type="number" min="0" max="100" placeholder="최소" value={minScore} onChange={e => setMinScore(e.target.value)} />
                                     <span className="tilde">~</span>
@@ -1344,7 +1302,7 @@
                                             {d.overlay_url
                                                 ? <img className="search-result-thumb" src={`${BASE}${d.overlay_url}`} alt="" />
                                                 : <span className="search-result-thumb">사진</span>}
-                                            <span className="search-result-label">결함률</span>
+                                            <span className="search-result-label">불량률</span>
                                             <span className="search-result-rate">{defectRate}</span>
                                             <span className="search-result-date">{dateStr}</span>
                                         </div>
@@ -1419,7 +1377,7 @@
                                         : <button className="storage-item-thumb">사진</button>}
                                     <div className="storage-item-info">
                                         <div className="storage-item-date">{dateStr}</div>
-                                        <div className="storage-item-score">결함률 {defectRate}</div>
+                                        <div className="storage-item-score">불량률 {defectRate}</div>
                                     </div>
                                     <button
                                         className="storage-item-delete"
@@ -1480,7 +1438,7 @@
                                                 <div className="storage-detail-info">
                                                     <div className="storage-detail-date">{sDateStr}</div>
                                                     <div className="storage-detail-row">
-                                                        <span className="storage-detail-label">결함률</span>
+                                                        <span className="storage-detail-label">불량률</span>
                                                         <span className="storage-detail-value">{sDefectRate}</span>
                                                     </div>
                                                     <div className="storage-detail-row">
